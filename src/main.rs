@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
         tokio::time::sleep(Duration::from_secs(1)).await;
         log::info!("speed of progress:{}% {} K/s",status.get_percent_complete(),status.get_byte_sec()/1024);
     }
-
+    log::info!("{} finish",status.url());
     Ok(())
 }
 
