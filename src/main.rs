@@ -1,9 +1,6 @@
 #![feature(backtrace)]
-#[allow(dead_code)]
-mod download_file;
-
 use anyhow::Result;
-use download_file::DownloadFile;
+use download_lib::DownloadFile;
 use log::LevelFilter;
 use std::path::PathBuf;
 use std::time::Duration;

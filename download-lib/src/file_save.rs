@@ -1,5 +1,5 @@
 use super::error::Result;
-use crate::download_file::error::DownloadError::SaveFileFinish;
+use super::error::DownloadError::SaveFileFinish;
 use aqueue::Actor;
 use std::io::SeekFrom;
 use std::path::PathBuf;

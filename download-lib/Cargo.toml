@@ -1,9 +1,7 @@
 [package]
-name = "download-file"
+name = "download-lib"
 version = "0.1.0"
 edition = "2021"
-license = "MIT/Apache-2.0"
-readme = "README.md"
 repository = "https://github.com/luyikk/download"
 documentation = "https://docs.rs/download-file"
 description = "multi fiber download http file."
@@ -12,14 +10,11 @@ description = "multi fiber download http file."
 
 [dependencies]
 tokio={version="1",features=["full"]}
-anyhow = "1"
 thiserror = "1.0"
 reqwest= { version = "0.11" , features = ["stream"]}
 log="0.4"
 env_logger = "0.9"
+aqueue = "1.2"
+async-trait = "0.1"
+futures-util = "0.3"
 structopt = "0.3"
-download-lib={path="./download-lib"}
-
-[profile.release]
-codegen-units=1
-lto="fat"

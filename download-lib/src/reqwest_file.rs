@@ -1,6 +1,6 @@
-use crate::download_file::file_save::{FileSave, IFileSave};
-use crate::download_file::DownloadInner;
-use crate::download_file::error::{Result,DownloadError};
+use super::file_save::{FileSave, IFileSave};
+use super::DownloadInner;
+use super::error::{Result,DownloadError};
 use aqueue::Actor;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;

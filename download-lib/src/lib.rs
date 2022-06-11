@@ -1,10 +1,11 @@
+#![feature(backtrace)]
 mod error;
 mod file_save;
 mod reqwest_file;
 
-use crate::download_file::error::DownloadError;
-use crate::download_file::file_save::IFileSave;
-use crate::download_file::reqwest_file::ReqwestFile;
+use error::DownloadError;
+use file_save::IFileSave;
+use reqwest_file::ReqwestFile;
 use aqueue::Actor;
 use error::Result;
 use file_save::FileSave;
@@ -150,16 +151,16 @@ impl DownloadFile {
                 });
 
                 for task in join_vec {
-                   match task.await{
-                       Ok(r)=>{
-                           if let Err(err)=r {
-                               log::error!("http download error:{:?}", err);
-                           }
-                       },
-                       Err(err)=>{
-                           log::error!("join error:{:?}", err);
-                       }
-                   }
+                    match task.await{
+                        Ok(r)=>{
+                            if let Err(err)=r {
+                                log::error!("http download error:{:?}", err);
+                            }
+                        },
+                        Err(err)=>{
+                            log::error!("join error:{:?}", err);
+                        }
+                    }
                 }
                 if let Err(err) = save_file.finish().await {
                     log::error!("save file finish error:{:?}", err);
