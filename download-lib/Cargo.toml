@@ -5,7 +5,7 @@ edition = "2021"
 repository = "https://github.com/luyikk/download"
 documentation = "https://docs.rs/download-file"
 description = "multi fiber download http file."
-
+license = "MIT/Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
