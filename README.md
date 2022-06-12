@@ -1,4 +1,4 @@
-# multi fiber fast download http file
+# fast multi task download http file
 
 ### install
 ``` shell

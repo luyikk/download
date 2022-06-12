@@ -44,7 +44,7 @@ impl ReqwestFile {
                         .send()
                         .await {
                         Ok(response) => {
-                            log::trace!("start url file:{} start:{} end:{}",self.inner_status.url,self.current,self.end);
+                            log::trace!("start download url block:{} start:{} end:{}",self.inner_status.url,self.current,self.end);
                             let mut stream=response.bytes_stream();
                             while let Some(buff) = stream.next().await {
                                 let buff = buff?;
@@ -61,7 +61,7 @@ impl ReqwestFile {
                         },
                         Err(err) => {
                             if i>0 {
-                                log::error!("download:{} error:{err} retry:{i}",self.inner_status.url);
+                                log::error!("download url:{} error:{err} retry:{i}",self.inner_status.url);
                             }else{
                                 return Err(DownloadError::ReqwestError {source:err, backtrace: std::backtrace::Backtrace::capture() })
                             }

@@ -104,7 +104,7 @@ impl DownloadFile {
             let end_add_size = size % block_size;
             assert_eq!(block_size * connect_count + end_add_size, size);
             log::trace!(
-                "computer connect count:{}  block size:{} end add size:{}",
+                "computer task count:{}  block size:{} end add size:{}",
                 connect_count,
                 block_size,
                 end_add_size
@@ -125,7 +125,7 @@ impl DownloadFile {
                     let inner_status = inner_status.clone();
                     let join:JoinHandle<Result<()>>=tokio::spawn(async move {
                         log::trace!(
-                            "connect:{} start:{} size:{} end:{} init",
+                            "task:{} start:{} size:{} end:{} init",
                             i,
                             start,
                             size,
@@ -134,7 +134,7 @@ impl DownloadFile {
 
                         ReqwestFile::new(save_file, inner_status, start, start + size).run().await?;
                         log::trace!(
-                            "connect:{} finish",
+                            "task:{} finish",
                             i
                         );
                         Ok(())
