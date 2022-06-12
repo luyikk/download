@@ -17,4 +17,4 @@ env_logger = "0.9"
 aqueue = "1.2"
 async-trait = "0.1"
 futures-util = "0.3"
-structopt = "0.3"
+structopt ={ version = "0.3", default-features = false }
