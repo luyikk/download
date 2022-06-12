@@ -3,13 +3,13 @@ mod error;
 mod file_save;
 mod reqwest_file;
 
-use error::DownloadError;
-use file_save::IFileSave;
-use reqwest_file::ReqwestFile;
 use aqueue::Actor;
+use error::DownloadError;
 use error::Result;
 use file_save::FileSave;
+use file_save::IFileSave;
 use reqwest::{IntoUrl, Url};
+use reqwest_file::ReqwestFile;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -19,7 +19,7 @@ use tokio::time::sleep;
 
 /// Down file handler
 pub struct DownloadFile {
-    task_count:u64,
+    task_count: u64,
     save_file: Arc<Actor<FileSave>>,
     inner_status: Arc<DownloadInner>,
 }
@@ -28,18 +28,17 @@ pub struct DownloadFile {
 pub struct DownloadInner {
     url: Url,
     size: u64,
-    down_size:AtomicU64,
+    down_size: AtomicU64,
     is_start: AtomicBool,
     is_finish: AtomicBool,
-    byte_sec:AtomicU64,
-    byte_sec_total:AtomicU64,
+    byte_sec: AtomicU64,
+    byte_sec_total: AtomicU64,
 }
 
 impl DownloadInner {
-
     /// get url
     #[inline]
-    pub fn url(&self)->&str{
+    pub fn url(&self) -> &str {
         self.url.as_str()
     }
 
@@ -57,29 +56,43 @@ impl DownloadInner {
 
     /// get complete percent
     #[inline]
-    pub fn get_percent_complete(&self)->f64{
-        let current =self.down_size.load(Ordering::Acquire) as f64/self.size.max(1) as f64 *100.0;
-        (current*100.0).round()/100.0
+    pub fn get_percent_complete(&self) -> f64 {
+        let current =
+            self.down_size.load(Ordering::Acquire) as f64 / self.size.max(1) as f64 * 100.0;
+        (current * 100.0).round() / 100.0
     }
 
     /// computer bs
     #[inline]
-    pub fn get_byte_sec(&self)->u64{
+    pub fn get_byte_sec(&self) -> u64 {
         self.byte_sec.load(Ordering::Acquire)
     }
 
     #[inline]
-    fn add_down_size(&self,len:u64){
-        self.down_size.fetch_add(len,Ordering::Release);
+    fn add_down_size(&self, len: u64) {
+        self.down_size.fetch_add(len, Ordering::Release);
         self.byte_sec_total.fetch_add(len, Ordering::Release);
     }
-
 }
 
 impl DownloadFile {
     #[inline]
-    pub async fn start_download<U: IntoUrl>(url: U, save_path: PathBuf,task_count:u64) -> Result<Self> {
+    pub async fn start_download<U: IntoUrl>(
+        url: U,
+        mut save_path: PathBuf,
+        task_count: u64,
+    ) -> Result<Self> {
         let url = url.into_url()?;
+        if save_path.is_dir() {
+            let file_name = url
+                .path_segments()
+                .ok_or_else(|| DownloadError::NotFileName(url.clone()))?
+                .rev()
+                .next()
+                .ok_or_else(|| DownloadError::NotFileName(url.clone()))?;
+            save_path.push(file_name);
+        }
+
         let size = Self::get_size(&url).await?;
         let file = Self {
             task_count,
@@ -91,13 +104,13 @@ impl DownloadFile {
                 is_finish: Default::default(),
                 down_size: Default::default(),
                 byte_sec_total: Default::default(),
-                byte_sec: Default::default()
+                byte_sec: Default::default(),
             }),
         };
         file.save_file.init().await?;
         log::trace!("url file:{} init ok size:{}", file.inner_status.url, size);
         if file.size() > 0 {
-            let size=file.size();
+            let size = file.size();
             file.inner_status.is_start.store(true, Ordering::Release);
             let connect_count = file.computer_connect_count();
             let block_size = size / connect_count;
@@ -123,7 +136,7 @@ impl DownloadFile {
 
                     let save_file = save_file.clone();
                     let inner_status = inner_status.clone();
-                    let join:JoinHandle<Result<()>>=tokio::spawn(async move {
+                    let join: JoinHandle<Result<()>> = tokio::spawn(async move {
                         log::trace!(
                             "task:{} start:{} size:{} end:{} init",
                             i,
@@ -132,32 +145,34 @@ impl DownloadFile {
                             start + size
                         );
 
-                        ReqwestFile::new(save_file, inner_status, start, start + size).run().await?;
-                        log::trace!(
-                            "task:{} finish",
-                            i
-                        );
+                        ReqwestFile::new(save_file, inner_status, start, start + size)
+                            .run()
+                            .await?;
+                        log::trace!("task:{} finish", i);
                         Ok(())
                     });
                     join_vec.push(join);
                 }
 
-                let inner_status_sec=inner_status.clone();
-                tokio::spawn(async move{
+                let inner_status_sec = inner_status.clone();
+                tokio::spawn(async move {
                     while !inner_status_sec.is_finish() {
-                        inner_status_sec.byte_sec.store(inner_status_sec.byte_sec_total.swap(0, Ordering::Release),Ordering::Release);
+                        inner_status_sec.byte_sec.store(
+                            inner_status_sec.byte_sec_total.swap(0, Ordering::Release),
+                            Ordering::Release,
+                        );
                         sleep(Duration::from_secs(1)).await
                     }
                 });
 
                 for task in join_vec {
-                    match task.await{
-                        Ok(r)=>{
-                            if let Err(err)=r {
+                    match task.await {
+                        Ok(r) => {
+                            if let Err(err) = r {
                                 log::error!("http download error:{:?}", err);
                             }
-                        },
-                        Err(err)=>{
+                        }
+                        Err(err) => {
                             log::error!("join error:{:?}", err);
                         }
                     }
@@ -214,13 +229,13 @@ impl DownloadFile {
 
     /// get url
     #[inline]
-    pub fn url(&self)->&str{
+    pub fn url(&self) -> &str {
         self.inner_status.url()
     }
 
     /// get status arc
     #[inline]
-    pub fn get_status(&self)->Arc<DownloadInner>{
+    pub fn get_status(&self) -> Arc<DownloadInner> {
         self.inner_status.clone()
     }
 
@@ -250,13 +265,13 @@ impl DownloadFile {
 
     /// suspend download
     #[inline]
-    pub fn suspend(&self){
-        self.inner_status.is_start.store(false,Ordering::Release);
+    pub fn suspend(&self) {
+        self.inner_status.is_start.store(false, Ordering::Release);
     }
 
     /// restart download
     #[inline]
-    pub fn restart(&self){
-        self.inner_status.is_start.store(true,Ordering::Release);
+    pub fn restart(&self) {
+        self.inner_status.is_start.store(true, Ordering::Release);
     }
 }
