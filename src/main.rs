@@ -61,7 +61,7 @@ struct Opt {
     url: String,
 
     /// save file path
-    #[structopt(short = "s", long, parse(from_os_str),default_value = "./")]
+    #[structopt(short = "s", long, parse(from_os_str), default_value = "./")]
     save_path: PathBuf,
 
     /// number of concurrent download

@@ -3,9 +3,9 @@ mod error;
 mod file_save;
 mod reqwest_file;
 
-use aqueue::Actor;
-use error::DownloadError;
+pub use error::DownloadError;
 use error::Result;
+use aqueue::Actor;
 use file_save::FileSave;
 use file_save::IFileSave;
 use reqwest::{IntoUrl, Url};

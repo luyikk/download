@@ -2,3 +2,8 @@
 /.idea/
 /Cargo.lock
 /download-lib/Cargo.lock
+/download-ffi/target/
+/download-ffi/Cargo.lock
+/download-ffi/durl.h
+/download-ffi/durl.py
+/download-ffi/DUrlInterop.cs
