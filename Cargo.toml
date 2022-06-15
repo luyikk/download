@@ -1,6 +1,6 @@
 [package]
 name = "download-file"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 license = "MIT/Apache-2.0"
 readme = "README.md"
@@ -16,7 +16,7 @@ anyhow = "1"
 log="0.4"
 env_logger = "0.9"
 structopt = "0.3"
-download-lib={path="./download-lib"}
+download-lib= "0.1"
 
 [profile.release]
 codegen-units=1
