@@ -44,11 +44,16 @@ async fn main() -> Result<()> {
             status.get_byte_sec() / 1024
         );
     }
-    log::info!(
-        "url {} download finish,save to {}",
-        status.url(),
-        download.get_real_file_path()
-    );
+
+    if !status.is_error() {
+        log::info!(
+            "url {} download finish,save to {}",
+            status.url(),
+            download.get_real_file_path()
+        );
+    } else {
+        log::info!("url {} download is error", status.url());
+    }
     Ok(())
 }
 
