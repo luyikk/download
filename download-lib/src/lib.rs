@@ -31,6 +31,7 @@ pub struct DownloadInner {
     down_size: AtomicU64,
     is_start: AtomicBool,
     is_finish: AtomicBool,
+    is_error:AtomicBool,
     byte_sec: AtomicU64,
     byte_sec_total: AtomicU64,
 }
@@ -52,6 +53,12 @@ impl DownloadInner {
     #[inline]
     pub fn is_finish(&self) -> bool {
         self.is_finish.load(Ordering::Acquire)
+    }
+
+    /// is error
+    #[inline]
+    pub fn is_error(&self) -> bool {
+        self.is_error.load(Ordering::Acquire)
     }
 
     /// get complete percent
@@ -105,6 +112,7 @@ impl DownloadFile {
                 down_size: Default::default(),
                 byte_sec_total: Default::default(),
                 byte_sec: Default::default(),
+                is_error: AtomicBool::new(false)
             }),
         };
         file.save_file.init().await?;
@@ -170,16 +178,20 @@ impl DownloadFile {
                         Ok(r) => {
                             if let Err(err) = r {
                                 log::error!("http download error:{:?}", err);
+                                inner_status.is_error.store(true,Ordering::Release);
                             }
                         }
                         Err(err) => {
                             log::error!("join error:{:?}", err);
+                            inner_status.is_error.store(true,Ordering::Release);
                         }
                     }
                 }
                 if let Err(err) = save_file.finish().await {
                     log::error!("save file finish error:{:?}", err);
+                    inner_status.is_error.store(true,Ordering::Release);
                 }
+
                 inner_status.is_finish.store(true, Ordering::Release);
             });
         } else {
@@ -261,6 +273,12 @@ impl DownloadFile {
     #[inline]
     pub fn is_finish(&self) -> bool {
         self.inner_status.is_finish()
+    }
+
+    /// is error
+    #[inline]
+    pub fn is_error(&self) -> bool {
+        self.inner_status.is_error()
     }
 
     /// get save file real path
