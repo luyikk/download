@@ -3,12 +3,12 @@ mod error;
 mod file_save;
 mod reqwest_file;
 
+use aqueue::Actor;
 pub use error::DownloadError;
 use error::Result;
-use aqueue::Actor;
 use file_save::FileSave;
 use file_save::IFileSave;
-use reqwest::{IntoUrl, Url};
+use reqwest::{IntoUrl, StatusCode, Url};
 use reqwest_file::ReqwestFile;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -194,8 +194,14 @@ impl DownloadFile {
     #[inline]
     async fn get_size(url: &Url) -> Result<u64> {
         let response = reqwest::Client::new().get(url.as_str()).send().await?;
-        Self::parse_content_length(response.headers())
-            .ok_or_else(|| DownloadError::NotGetFileSize(url.clone()))
+        if response.status() == StatusCode::OK {
+            Self::parse_content_length(response.headers())
+                .ok_or_else(|| DownloadError::NotGetFileSize(url.clone()))
+        } else {
+            Err(DownloadError::HttpStatusError(
+                response.status().to_string(),
+            ))
+        }
     }
 
     #[inline]

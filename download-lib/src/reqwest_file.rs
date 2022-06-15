@@ -1,6 +1,7 @@
 use super::error::{DownloadError, Result};
 use super::file_save::{FileSave, IFileSave};
 use super::DownloadInner;
+use crate::StatusCode;
 use aqueue::Actor;
 use futures_util::StreamExt;
 use std::sync::atomic::Ordering;
@@ -48,27 +49,41 @@ impl ReqwestFile {
                         .await
                     {
                         Ok(response) => {
-                            log::trace!(
-                                "start download url block:{} start:{} end:{}",
-                                self.inner_status.url,
-                                self.current,
-                                self.end
-                            );
-                            let mut stream = response.bytes_stream();
-                            while let Some(buff) = stream.next().await {
-                                let buff = buff?;
-                                self.save_file
-                                    .write_all_by_offset(&buff, self.current)
-                                    .await?;
-                                let len = buff.len() as u64;
-                                self.current += len;
-                                self.inner_status.add_down_size(len);
-                                if !self.inner_status.is_start() {
-                                    log::debug!("is suspend");
-                                    break 're;
+                            if response.status() == StatusCode::OK {
+                                log::trace!(
+                                    "start download url block:{} start:{} end:{}",
+                                    self.inner_status.url,
+                                    self.current,
+                                    self.end
+                                );
+                                let mut stream = response.bytes_stream();
+                                while let Some(buff) = stream.next().await {
+                                    let buff = buff?;
+                                    self.save_file
+                                        .write_all_by_offset(&buff, self.current)
+                                        .await?;
+                                    let len = buff.len() as u64;
+                                    self.current += len;
+                                    self.inner_status.add_down_size(len);
+                                    if !self.inner_status.is_start() {
+                                        log::debug!("is suspend");
+                                        break 're;
+                                    }
+                                }
+                                break 're;
+                            } else {
+                                if i > 0 {
+                                    log::error!(
+                                        "download url:{}  status error:{} retry:{i}",
+                                        self.inner_status.url,
+                                        response.status()
+                                    );
+                                } else {
+                                    return Err(DownloadError::HttpStatusError(
+                                        response.status().to_string(),
+                                    ));
                                 }
                             }
-                            break 're;
                         }
                         Err(err) => {
                             if i > 0 {

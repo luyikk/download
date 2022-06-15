@@ -21,6 +21,8 @@ pub enum DownloadError {
     SaveFileFinish(String),
     #[error("not get file name ->{0:?}")]
     NotFileName(reqwest::Url),
+    #[error("http error:{0}")]
+    HttpStatusError(String),
 }
 
 pub type Result<T> = std::result::Result<T, DownloadError>;
