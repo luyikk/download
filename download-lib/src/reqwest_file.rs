@@ -71,18 +71,16 @@ impl ReqwestFile {
                                     }
                                 }
                                 break 're;
+                            } else if i > 0 {
+                                log::error!(
+                                    "download url:{}  status error:{} retry:{i}",
+                                    self.inner_status.url,
+                                    response.status()
+                                );
                             } else {
-                                if i > 0 {
-                                    log::error!(
-                                        "download url:{}  status error:{} retry:{i}",
-                                        self.inner_status.url,
-                                        response.status()
-                                    );
-                                } else {
-                                    return Err(DownloadError::HttpStatusError(
-                                        response.status().to_string(),
-                                    ));
-                                }
+                                return Err(DownloadError::HttpStatusError(
+                                    response.status().to_string(),
+                                ));
                             }
                         }
                         Err(err) => {
