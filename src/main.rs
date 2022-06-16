@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use structopt::StructOpt;
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() -> Result<()> {
     let opt = Opt::from_args();
 

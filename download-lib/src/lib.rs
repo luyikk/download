@@ -175,16 +175,15 @@ impl DownloadFile {
 
                 for task in join_vec {
                     match task.await {
-                        Ok(r) => {
-                            if let Err(err) = r {
-                                log::error!("http download error:{:?}", err);
-                                inner_status.is_error.store(true, Ordering::Release);
-                            }
+                        Ok(Err(err)) => {
+                            log::error!("http download error:{:?}", err);
+                            inner_status.is_error.store(true, Ordering::Release);
                         }
                         Err(err) => {
                             log::error!("join error:{:?}", err);
                             inner_status.is_error.store(true, Ordering::Release);
                         }
+                        _=>{}
                     }
                 }
                 if let Err(err) = save_file.finish().await {
