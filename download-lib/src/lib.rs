@@ -183,7 +183,7 @@ impl DownloadFile {
                             log::error!("join error:{:?}", err);
                             inner_status.is_error.store(true, Ordering::Release);
                         }
-                        _=>{}
+                        _ => {}
                     }
                 }
                 if let Err(err) = save_file.finish().await {

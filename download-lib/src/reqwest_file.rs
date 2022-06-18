@@ -7,8 +7,7 @@ use futures_util::StreamExt;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::{timeout,sleep};
-
+use tokio::time::{sleep, timeout};
 
 /// http download file
 pub(crate) struct ReqwestFile {
@@ -40,16 +39,22 @@ impl ReqwestFile {
                 sleep(Duration::from_secs(1)).await
             } else {
                 're: for i in (0..10).rev() {
-                    match timeout(Duration::from_secs(15), reqwest::Client::new()
-                        .get(self.inner_status.url.as_str())
-                        .header(
-                            reqwest::header::RANGE,
-                            format!("bytes={}-{}", self.current, self.end),
-                        )
-                        .send()).await
+                    match timeout(
+                        Duration::from_secs(15),
+                        reqwest::Client::new()
+                            .get(self.inner_status.url.as_str())
+                            .header(
+                                reqwest::header::RANGE,
+                                format!("bytes={}-{}", self.current, self.end),
+                            )
+                            .send(),
+                    )
+                    .await
                     {
                         Ok(Ok(response)) => {
-                            if response.status() == StatusCode::OK || response.status() ==  StatusCode::PARTIAL_CONTENT {
+                            if response.status() == StatusCode::OK
+                                || response.status() == StatusCode::PARTIAL_CONTENT
+                            {
                                 log::trace!(
                                     "start download url block:{} start:{} end:{}",
                                     self.inner_status.url,
@@ -58,8 +63,8 @@ impl ReqwestFile {
                                 );
                                 let mut stream = response.bytes_stream();
                                 loop {
-                                    match timeout(Duration::from_secs(10), stream.next()).await{
-                                        Ok(Some(Ok(buf)))=> {
+                                    match timeout(Duration::from_secs(10), stream.next()).await {
+                                        Ok(Some(Ok(buf))) => {
                                             self.save_file
                                                 .write_all_by_offset(&buf, self.current)
                                                 .await?;
@@ -70,14 +75,21 @@ impl ReqwestFile {
                                                 log::debug!("is suspend");
                                                 break;
                                             }
-                                        },
-                                        Ok(Some(Err(err)))=>{
-                                            log::error!("download url:{} buff is error:{}",self.inner_status.url,err);
+                                        }
+                                        Ok(Some(Err(err))) => {
+                                            log::error!(
+                                                "download url:{} buff is error:{}",
+                                                self.inner_status.url,
+                                                err
+                                            );
                                             break;
                                         }
-                                        Ok(None)=>break,
-                                        Err(_)=>{
-                                            log::warn!("download url:{} time out", self.inner_status.url);
+                                        Ok(None) => break,
+                                        Err(_) => {
+                                            log::warn!(
+                                                "download url:{} time out",
+                                                self.inner_status.url
+                                            );
                                             break;
                                         }
                                     }
@@ -107,8 +119,8 @@ impl ReqwestFile {
                                     backtrace: std::backtrace::Backtrace::capture(),
                                 });
                             }
-                        },
-                        Err(_)=>{
+                        }
+                        Err(_) => {
                             log::warn!("get url:{} response time out", self.inner_status.url);
                         }
                     }
