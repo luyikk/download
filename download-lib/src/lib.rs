@@ -83,6 +83,8 @@ impl DownloadInner {
 }
 
 impl DownloadFile {
+
+    /// start download now
     #[inline]
     pub async fn start_download<U: IntoUrl>(
         url: U,
