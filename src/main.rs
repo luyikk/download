@@ -1,4 +1,3 @@
-#![feature(backtrace)]
 use anyhow::Result;
 use download_lib::DownloadFile;
 use log::LevelFilter;
