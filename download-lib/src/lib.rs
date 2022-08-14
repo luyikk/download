@@ -1,4 +1,3 @@
-#![feature(backtrace)]
 mod error;
 mod file_save;
 mod reqwest_file;

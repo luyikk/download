@@ -115,8 +115,7 @@ impl ReqwestFile {
                                 );
                             } else {
                                 return Err(DownloadError::ReqwestError {
-                                    source: err,
-                                    backtrace: std::backtrace::Backtrace::capture(),
+                                    source: err
                                 });
                             }
                         }

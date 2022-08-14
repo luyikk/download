@@ -1,4 +1,3 @@
-use std::backtrace::Backtrace;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -7,13 +6,11 @@ pub enum DownloadError {
     ReqwestError {
         #[from]
         source: reqwest::Error,
-        backtrace: Backtrace,
     },
     #[error("io error->{source:?}")]
     IoError {
         #[from]
         source: std::io::Error,
-        backtrace: Backtrace,
     },
     #[error("not get file size ->{0:?}")]
     NotGetFileSize(reqwest::Url),
