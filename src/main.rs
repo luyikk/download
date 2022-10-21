@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
         .filter_level(LevelFilter::Trace)
         .init();
 
-    match DownloadFile::start_download(opt.url, opt.save_path, opt.tasks).await {
+    match DownloadFile::start_download(opt.url, opt.save_path, opt.tasks,1024*500).await {
         Ok(download) => {
             let status = download.get_status();
             //  tokio::spawn(async move{

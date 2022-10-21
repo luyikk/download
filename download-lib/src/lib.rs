@@ -16,6 +16,7 @@ use std::time::Duration;
 use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
+use std::cmp::min;
 
 /// Down file handler
 pub struct DownloadFile {
@@ -31,6 +32,7 @@ impl DownloadFile {
         url: U,
         mut save_path: PathBuf,
         task_count: u64,
+        block:u64,
     ) -> Result<Self> {
         let url = url.into_url()?;
         if save_path.is_dir() {
@@ -44,6 +46,11 @@ impl DownloadFile {
         }
 
         let size = Self::get_size(&url).await?;
+
+        let task_count={
+           min(task_count,size/block)
+        };
+
         let file = Self {
             task_count,
             save_file: Arc::new(FileSave::create(save_path, size)?),
@@ -95,7 +102,6 @@ impl DownloadFile {
                             size,
                             start + size
                         );
-
                         ReqwestFile::new(save_file, inner_status, start, start + size)
                             .run()
                             .await?;
@@ -147,7 +153,9 @@ impl DownloadFile {
                         }
                     }
                 }
-
+                inner_status
+                    .down_size
+                    .store(inner_status.size, Ordering::Release);
                 inner_status.is_finish.store(true, Ordering::Release);
             });
         } else {

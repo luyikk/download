@@ -25,8 +25,18 @@ pub enum DownloadError {
     JoinInError(JoinError),
 }
 
-pub type Result<T> = std::result::Result<T, DownloadError>;
-
-impl From<DownloadError> for i32{
-    
+impl From<&DownloadError> for i32 {
+    fn from(v: &DownloadError) -> Self {
+        match v {
+            DownloadError::ReqwestError { .. } => 1,
+            DownloadError::IoError { .. } => 2,
+            DownloadError::NotGetFileSize { .. } => 3,
+            DownloadError::SaveFileFinish { .. } => 4,
+            DownloadError::NotFileName { .. } => 5,
+            DownloadError::HttpStatusError { .. } => 6,
+            DownloadError::JoinInError { .. } => 7,
+        }
+    }
 }
+
+pub type Result<T> = std::result::Result<T, DownloadError>;
