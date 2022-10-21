@@ -10,7 +10,6 @@ crate-type=["dylib","staticlib"]
 
 [dependencies]
 download-lib = {path="../download-lib"}
-memory_logger = {version="0.1.1",features=["blocking"]}
 log = "0.4"
 tokio = {version="1",features=["full"]}
 

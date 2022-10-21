@@ -1,4 +1,5 @@
 use thiserror::Error;
+use tokio::task::JoinError;
 
 #[derive(Error, Debug)]
 pub enum DownloadError {
@@ -20,6 +21,12 @@ pub enum DownloadError {
     NotFileName(reqwest::Url),
     #[error("http error:{0}")]
     HttpStatusError(String),
+    #[error("async join error:{0}")]
+    JoinInError(JoinError),
 }
 
 pub type Result<T> = std::result::Result<T, DownloadError>;
+
+impl From<DownloadError> for i32{
+    
+}

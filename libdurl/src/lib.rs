@@ -1,14 +1,13 @@
 extern crate alloc;
+extern crate core;
 
 use download_lib::DownloadFile;
-use memory_logger::blocking::MemoryLogger;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::ptr::null_mut;
 use tokio::runtime::Runtime;
 
-static mut LOGGER: Option<&'static MemoryLogger> = None;
 
 #[macro_export]
 macro_rules! cstr {
@@ -17,58 +16,8 @@ macro_rules! cstr {
     };
 }
 
-/// To initialize the library, you only need to call it once
-/// return:
-/// true is init ok
-/// false is init fail
-#[no_mangle]
-pub extern "C" fn init() -> bool {
-    unsafe {
-        if LOGGER.is_none() {
-            return match MemoryLogger::setup(log::Level::Trace) {
-                Ok(logger) => {
-                    LOGGER = Some(logger);
-                    log::info!("------------------");
-                    log::info!("libdurl init ok");
-                    log::info!("------------------");
-                    true
-                }
-                Err(_) => false,
-            };
-        } else {
-            true
-        }
-    }
-}
-
-/// clear logs content
-#[no_mangle]
-pub extern "C" fn clear_logs() {
-    unsafe {
-        if let Some(logger) = LOGGER {
-            logger.clear();
-        }
-    }
-}
-
-/// get logs str, return copy c_char len
-/// if not call init function,Unable to get log, return 0
-/// # Safety
-/// if args logs ptr real len !=ptr_len will Undefined behavior
-#[no_mangle]
-pub unsafe extern "C" fn get_logs(logs: *mut c_char, ptr_len: u64) -> u64 {
-    if let Some(logger) = LOGGER {
-        let content = cstr!(logger.read().to_string());
-        let len = (content.len() as u64).min(ptr_len);
-        logs.copy_from(content.as_ptr().cast(), len as usize);
-        logger.clear();
-        len
-    } else {
-        0
-    }
-}
-
 /// Download handler context
+#[repr(C)]
 pub struct DownloadHandler {
     _runtime: Runtime,
     down_core: DownloadFile,
@@ -101,17 +50,18 @@ pub unsafe extern "C" fn start_now(
                     down_core,
                 })),
                 Err(err) => {
-                    log::error!("error:{:?}", err);
+                    println!("error:{:?}", err);
                     null_mut()
                 }
             }
         }
         Err(err) => {
-            log::error!("error:{}", err);
+            println!("error:{}", err);
             null_mut()
         }
     }
 }
+
 
 /// get url str, return copy c_char len
 /// # Safety
@@ -145,11 +95,7 @@ pub unsafe extern "C" fn get_save_path(
     len
 }
 
-/// get download file size
-#[no_mangle]
-pub extern "C" fn get_size(handler: &DownloadHandler)->u64{
-    handler.down_core.size()
-}
+
 
 /// get download is start
 #[no_mangle]
@@ -161,6 +107,13 @@ pub extern "C" fn is_start(handler: &DownloadHandler) -> bool {
 #[no_mangle]
 pub extern "C" fn is_finish(handler: &DownloadHandler) -> bool {
     handler.down_core.is_finish()
+}
+
+
+/// get download file size
+#[no_mangle]
+pub extern "C" fn get_size(handler: &DownloadHandler)->u64{
+    handler.down_core.size()
 }
 
 /// get download is error
@@ -192,4 +145,12 @@ pub extern "C" fn suspend(handler: &DownloadHandler) {
 #[no_mangle]
 pub extern "C" fn restart(handler: &DownloadHandler) {
     handler.down_core.restart();
+}
+
+#[no_mangle]
+pub extern "C" fn get_state(handler: &DownloadHandler, size: &mut u64, down_size:&mut u64, err_code:&mut i32) ->u32{
+    *size=handler.down_core.size();
+    *down_size=handler.down_core.get_down_size();
+
+    0
 }

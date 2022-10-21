@@ -114,9 +114,7 @@ impl ReqwestFile {
                                     self.inner_status.url
                                 );
                             } else {
-                                return Err(DownloadError::ReqwestError {
-                                    source: err
-                                });
+                                return Err(DownloadError::ReqwestError { source: err });
                             }
                         }
                         Err(_) => {

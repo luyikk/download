@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
@@ -23,66 +24,7 @@ pub struct DownloadFile {
     inner_status: Arc<DownloadInner>,
 }
 
-/// download status
-pub struct DownloadInner {
-    url: Url,
-    size: u64,
-    down_size: AtomicU64,
-    is_start: AtomicBool,
-    is_finish: AtomicBool,
-    is_error: AtomicBool,
-    byte_sec: AtomicU64,
-    byte_sec_total: AtomicU64,
-}
-
-impl DownloadInner {
-    /// get url
-    #[inline]
-    pub fn url(&self) -> &str {
-        self.url.as_str()
-    }
-
-    /// is start
-    #[inline]
-    pub fn is_start(&self) -> bool {
-        self.is_start.load(Ordering::Acquire)
-    }
-
-    /// is finish
-    #[inline]
-    pub fn is_finish(&self) -> bool {
-        self.is_finish.load(Ordering::Acquire)
-    }
-
-    /// is error
-    #[inline]
-    pub fn is_error(&self) -> bool {
-        self.is_error.load(Ordering::Acquire)
-    }
-
-    /// get complete percent
-    #[inline]
-    pub fn get_percent_complete(&self) -> f64 {
-        let current =
-            self.down_size.load(Ordering::Acquire) as f64 / self.size.max(1) as f64 * 100.0;
-        (current * 100.0).round() / 100.0
-    }
-
-    /// computer bs
-    #[inline]
-    pub fn get_byte_sec(&self) -> u64 {
-        self.byte_sec.load(Ordering::Acquire)
-    }
-
-    #[inline]
-    fn add_down_size(&self, len: u64) {
-        self.down_size.fetch_add(len, Ordering::Release);
-        self.byte_sec_total.fetch_add(len, Ordering::Release);
-    }
-}
-
 impl DownloadFile {
-
     /// start download now
     #[inline]
     pub async fn start_download<U: IntoUrl>(
@@ -113,7 +55,7 @@ impl DownloadFile {
                 down_size: Default::default(),
                 byte_sec_total: Default::default(),
                 byte_sec: Default::default(),
-                is_error: AtomicBool::new(false),
+                error: OnceCell::default(),
             }),
         };
         file.save_file.init().await?;
@@ -178,18 +120,32 @@ impl DownloadFile {
                     match task.await {
                         Ok(Err(err)) => {
                             log::error!("http download error:{:?}", err);
-                            inner_status.is_error.store(true, Ordering::Release);
+                            if !inner_status.error.initialized() {
+                                if let Err(err) = inner_status.error.set(err) {
+                                    log::error!("set error fail:{}", err)
+                                }
+                            }
                         }
                         Err(err) => {
                             log::error!("join error:{:?}", err);
-                            inner_status.is_error.store(true, Ordering::Release);
+                            if !inner_status.error.initialized() {
+                                if let Err(err) =
+                                    inner_status.error.set(DownloadError::JoinInError(err))
+                                {
+                                    log::error!("set error fail:{}", err)
+                                }
+                            }
                         }
                         _ => {}
                     }
                 }
                 if let Err(err) = save_file.finish().await {
                     log::error!("save file finish error:{:?}", err);
-                    inner_status.is_error.store(true, Ordering::Release);
+                    if !inner_status.error.initialized() {
+                        if let Err(err) = inner_status.error.set(err) {
+                            log::error!("set error fail:{}", err)
+                        }
+                    }
                 }
 
                 inner_status.is_finish.store(true, Ordering::Release);
@@ -263,6 +219,12 @@ impl DownloadFile {
         self.inner_status.size
     }
 
+    /// get down size
+    #[inline]
+    pub fn get_down_size(&self) -> u64 {
+        self.inner_status.get_down_size()
+    }
+
     /// is start
     #[inline]
     pub fn is_start(&self) -> bool {
@@ -281,6 +243,12 @@ impl DownloadFile {
         self.inner_status.is_error()
     }
 
+    /// get error
+    #[inline]
+    pub fn get_error(&self) -> Option<&DownloadError> {
+        self.inner_status.get_error()
+    }
+
     /// get save file real path
     #[inline]
     pub fn get_real_file_path(&self) -> String {
@@ -297,5 +265,76 @@ impl DownloadFile {
     #[inline]
     pub fn restart(&self) {
         self.inner_status.is_start.store(true, Ordering::Release);
+    }
+}
+
+/// download status
+pub struct DownloadInner {
+    url: Url,
+    size: u64,
+    down_size: AtomicU64,
+    is_start: AtomicBool,
+    is_finish: AtomicBool,
+    error: OnceCell<DownloadError>,
+    byte_sec: AtomicU64,
+    byte_sec_total: AtomicU64,
+}
+
+impl DownloadInner {
+    /// get url
+    #[inline]
+    pub fn url(&self) -> &str {
+        self.url.as_str()
+    }
+
+    /// is start
+    #[inline]
+    pub fn is_start(&self) -> bool {
+        self.is_start.load(Ordering::Acquire)
+    }
+
+    /// is finish
+    #[inline]
+    pub fn is_finish(&self) -> bool {
+        self.is_finish.load(Ordering::Acquire)
+    }
+
+    /// is error
+    #[inline]
+    pub fn is_error(&self) -> bool {
+        self.error.initialized()
+    }
+
+    /// get error
+    #[inline]
+    pub fn get_error(&self) -> Option<&DownloadError> {
+        self.error.get()
+    }
+
+    /// get complete percent
+    #[inline]
+    pub fn get_percent_complete(&self) -> f64 {
+        let current =
+            self.down_size.load(Ordering::Acquire) as f64 / self.size.max(1) as f64 * 100.0;
+        (current * 100.0).round() / 100.0
+    }
+
+    /// computer bs
+    #[inline]
+    pub fn get_byte_sec(&self) -> u64 {
+        self.byte_sec.load(Ordering::Acquire)
+    }
+
+    /// get size
+    #[inline]
+    pub fn get_down_size(&self) -> u64 {
+        self.down_size.load(Ordering::Acquire)
+    }
+
+    /// add down size
+    #[inline]
+    fn add_down_size(&self, len: u64) {
+        self.down_size.fetch_add(len, Ordering::Release);
+        self.byte_sec_total.fetch_add(len, Ordering::Release);
     }
 }
