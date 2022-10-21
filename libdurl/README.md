@@ -8,6 +8,12 @@ Ntdll.lib
 Secur32.lib
 Ncrypt.lib
 libdurl.lib
+
+android build:
+ 
+ export TARGET_AR=~/.NDK/arm/bin/arm-linux-androideabi-ar
+ export TARGET_CC=~/.NDK/arm/bin/arm-linux-androideabi-clang
+ cargo build --target armv7-linux-androideabi --release
 ```
 
 ```c++
