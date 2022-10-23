@@ -25,7 +25,7 @@ pub struct DownloadHandler {
 }
 
 #[no_mangle]
-pub extern "C" fn rd_create() -> *mut DownloadHandler {
+pub extern "C" fn durl_create() -> *mut DownloadHandler {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(1)
         .enable_all()
@@ -42,7 +42,7 @@ pub extern "C" fn rd_create() -> *mut DownloadHandler {
 /// # Safety
 /// free DownloadHandler
 #[no_mangle]
-pub unsafe extern "C" fn rd_release(handler: *mut DownloadHandler) {
+pub unsafe extern "C" fn durl_release(handler: *mut DownloadHandler) {
     let handler = Box::from_raw(handler);
     drop(handler)
 }
@@ -52,12 +52,12 @@ pub unsafe extern "C" fn rd_release(handler: *mut DownloadHandler) {
 /// if return nullptr use get_logs look log content analysis quest.
 /// url and path is cstr end is '\0',otherwise it will Undefined behavior
 #[no_mangle]
-pub unsafe extern "C" fn rd_start(
+pub unsafe extern "C" fn durl_start(
     handler: &mut DownloadHandler,
     url: *const c_char,
     path: *const c_char,
     task: u64,
-    block:u64
+    block: u64,
 ) {
     if !handler.down_core.initialized() && !handler.error.initialized() {
         let url = CStr::from_ptr(url).to_str().unwrap().to_string();
@@ -67,7 +67,7 @@ pub unsafe extern "C" fn rd_start(
         let down_core_ptr = handler.down_core.clone();
         let error_ptr = handler.error.clone();
         handler._runtime.spawn(async move {
-            match DownloadFile::start_download(url, save_path, task,block).await {
+            match DownloadFile::start_download(url, save_path, task, block).await {
                 Ok(download) => {
                     let _ = down_core_ptr.set(download);
                 }
@@ -81,11 +81,11 @@ pub unsafe extern "C" fn rd_start(
 
 /// get download is start
 #[no_mangle]
-pub extern "C" fn rd_is_downloading(handler: &DownloadHandler) -> bool {
+pub extern "C" fn durl_is_downloading(handler: &DownloadHandler) -> bool {
     if let Some(download) = handler.down_core.get() {
-        if download.is_error() || handler.error.initialized(){
+        if download.is_error() || handler.error.initialized() {
             true
-        }else{
+        } else {
             download.is_start()
         }
     } else {
@@ -93,10 +93,19 @@ pub extern "C" fn rd_is_downloading(handler: &DownloadHandler) -> bool {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn durl_is_downloading_finish(handler: &DownloadHandler) -> bool {
+    if let Some(download) = handler.down_core.get() {
+        download.is_finish()
+    } else {
+        false
+    }
+}
+
 /// get state
 /// if error return error msg len
 #[no_mangle]
-pub extern "C" fn rd_get_state(
+pub extern "C" fn durl_get_state(
     handler: &DownloadHandler,
     size: &mut u64,
     down_size: &mut u64,
@@ -128,7 +137,7 @@ pub extern "C" fn rd_get_state(
 /// # Safety
 /// get error msg string
 #[no_mangle]
-pub unsafe extern "C" fn rd_get_error_str(handler: &DownloadHandler, msg: *mut c_char) {
+pub unsafe extern "C" fn durl_get_error_str(handler: &DownloadHandler, msg: *mut c_char) {
     if let Some(err) = handler.error.get() {
         let err_msg = cstr!(err);
         let len = err_msg.len();

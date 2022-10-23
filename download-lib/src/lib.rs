@@ -9,6 +9,7 @@ use file_save::FileSave;
 use file_save::IFileSave;
 use reqwest::{IntoUrl, StatusCode, Url};
 use reqwest_file::ReqwestFile;
+use std::cmp::{max, min};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -16,7 +17,6 @@ use std::time::Duration;
 use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
-use std::cmp::min;
 
 /// Down file handler
 pub struct DownloadFile {
@@ -32,7 +32,7 @@ impl DownloadFile {
         url: U,
         mut save_path: PathBuf,
         task_count: u64,
-        block:u64,
+        block: u64,
     ) -> Result<Self> {
         let url = url.into_url()?;
         if save_path.is_dir() {
@@ -47,9 +47,7 @@ impl DownloadFile {
 
         let size = Self::get_size(&url).await?;
 
-        let task_count={
-           min(task_count,size/block)
-        };
+        let task_count = { max(min(task_count, size / block), 1) };
 
         let file = Self {
             task_count,
@@ -193,19 +191,15 @@ impl DownloadFile {
     #[inline]
     fn computer_connect_count(&self) -> u64 {
         let size = self.size();
-        if size > 0 {
-            if size < 4096 {
-                1
-            } else {
-                let count = size / self.task_count;
-                if count < 4096 {
-                    size / 4096
-                } else {
-                    self.task_count
-                }
-            }
+        if size < 4096 {
+            1
         } else {
-            0
+            let ts = size / self.task_count;
+            if ts < 4096 {
+                size / 4096
+            } else {
+                self.task_count
+            }
         }
     }
 

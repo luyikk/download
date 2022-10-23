@@ -12,6 +12,7 @@ async fn main() -> Result<()> {
     env_logger::builder()
         .filter_module("want", LevelFilter::Error)
         .filter_module("mio", LevelFilter::Error)
+        .filter_module("rustls", LevelFilter::Error)
         .filter_level(LevelFilter::Trace)
         .init();
 

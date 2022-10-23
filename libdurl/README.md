@@ -23,19 +23,19 @@ android build:
 
 int main()
 {
-    auto download = rd_create();
-    rd_start(download, "https://mya13-res.s3.ap-southeast-1.amazonaws.com/jjj_hotfix/fish/latest.zip", "d:/", 10,1024*512);
+    auto download = durl_create();
+    durl_start(download, "https://mya13-res.s3.ap-southeast-1.amazonaws.com/jjj_hotfix/fish/latest.zip", "d:/", 10,1024*512);
     for (;;) {
-        if(rd_is_downloading(download)){
+        if(durl_is_downloading(download)){
             uint64_t size = 0;
             uint64_t down_size = 0;
             int32_t error_code = 0;
-            auto len= rd_get_state(download, &size, &down_size, &error_code);
+            auto len= durl_get_state(download, &size, &down_size, &error_code);
 
             if (error_code != 0) {
                 std::string s;
                 s.resize(len);
-                rd_get_error_str(download, (char*)s.data());
+                durl_get_error_str(download, (char*)s.data());
                 std::cout << s << std::endl;
                 break;
             }
@@ -54,6 +54,6 @@ int main()
        
         Sleep(50);        
     }
-    rd_release(download);
+    durl_release(download);
 }
 ```
