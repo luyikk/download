@@ -1,21 +1,29 @@
 ```text
-vc link:
-Crypt32.lib
-ws2_32.lib
-Bcrypt.lib
-Userenv.lib
-Ntdll.lib
-Secur32.lib
-Ncrypt.lib
-libdurl.lib
+vc link lib:
+    openssl:
+        Crypt32.lib
+        ws2_32.lib
+        Bcrypt.lib
+        Userenv.lib
+        Ntdll.lib
+        Secur32.lib
+        Ncrypt.lib
+        libdurl.lib
+        
+    rustls:
+        Bcrypt.lib
+        ws2_32.lib
+        Ntdll.lib
+        libdurl.lib
 
-android build:
+android build example:
  
  export TARGET_AR=~/.NDK/arm/bin/arm-linux-androideabi-ar
  export TARGET_CC=~/.NDK/arm/bin/arm-linux-androideabi-clang
  cargo build --target armv7-linux-androideabi --release
 ```
 
+vc example:
 ```c++
 #include <iostream>
 #include <Windows.h>
