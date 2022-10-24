@@ -10,7 +10,7 @@ name="libdurl"
 crate-type=["staticlib"]
 
 [dependencies]
-download-lib = "0.2.1"
+download-lib = "0.2.2"
 log = "0.4"
 tokio = {version="1",features=["full"]}
 
