@@ -83,7 +83,7 @@ impl DownloadFile {
             tokio::spawn(async move {
                 let mut join_vec = Vec::with_capacity(connect_count as usize);
                 for i in 0..connect_count {
-                    let size = if i == connect_count - 1 {
+                    let down_size = if i == connect_count - 1 {
                         block_size + end_add_size
                     } else {
                         block_size
@@ -93,14 +93,18 @@ impl DownloadFile {
                     let save_file = save_file.clone();
                     let inner_status = inner_status.clone();
                     let join: JoinHandle<Result<()>> = tokio::spawn(async move {
+
+                        let end= start + down_size-1;
+
                         log::trace!(
-                            "task:{} start:{} size:{} end:{} init",
+                            "task:{} start:{} down size:{} end:{} init",
                             i,
                             start,
-                            size,
-                            start + size
+                            down_size,
+                            end
                         );
-                        ReqwestFile::new(save_file, inner_status, start, start + size)
+
+                        ReqwestFile::new(save_file, inner_status, start, end)
                             .run()
                             .await?;
                         log::trace!("task:{} finish", i);

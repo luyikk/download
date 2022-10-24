@@ -14,7 +14,7 @@ pub(crate) struct ReqwestFile {
     save_file: Arc<Actor<FileSave>>,
     inner_status: Arc<DownloadInner>,
     end: u64,
-    current: u64,
+    current: u64
 }
 
 impl ReqwestFile {
@@ -22,13 +22,13 @@ impl ReqwestFile {
         save_file: Arc<Actor<FileSave>>,
         inner_status: Arc<DownloadInner>,
         start: u64,
-        end: u64,
+        end: u64
     ) -> Self {
         Self {
             save_file,
             inner_status,
             end,
-            current: start,
+            current: start
         }
     }
 
@@ -39,15 +39,20 @@ impl ReqwestFile {
                 sleep(Duration::from_secs(1)).await
             } else {
                 're: for i in (0..10).rev() {
-                    match timeout(
-                        Duration::from_secs(15),
+
+                    let request_data= {
                         reqwest::Client::new()
                             .get(self.inner_status.url.as_str())
                             .header(
                                 reqwest::header::RANGE,
                                 format!("bytes={}-{}", self.current, self.end),
                             )
-                            .send(),
+                            .send()
+                    };
+
+                    match timeout(
+                        Duration::from_secs(15),
+                        request_data
                     )
                     .await
                     {
@@ -56,10 +61,11 @@ impl ReqwestFile {
                                 || response.status() == StatusCode::PARTIAL_CONTENT
                             {
                                 log::trace!(
-                                    "start download url block:{} start:{} end:{}",
+                                    "start download url block:{} start:{} end:{} status:{:?}",
                                     self.inner_status.url,
                                     self.current,
-                                    self.end
+                                    self.end,
+                                    response.headers().get(reqwest::header::CONTENT_RANGE)
                                 );
                                 let mut stream = response.bytes_stream();
                                 loop {
