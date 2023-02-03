@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use log::info;
 use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
@@ -35,17 +36,21 @@ impl DownloadFile {
         block: u64,
     ) -> Result<Self> {
         let url = url.into_url()?;
+        let (size,file_name, response) = Self::get_size_and_filename(&url).await?;
         if save_path.is_dir() {
-            let file_name = url
-                .path_segments()
-                .ok_or_else(|| DownloadError::NotFileName(url.clone()))?
-                .rev()
-                .next()
-                .ok_or_else(|| DownloadError::NotFileName(url.clone()))?;
-            save_path.push(file_name);
+            if let Some(filename)=file_name{
+                save_path.push(filename);
+            }else{
+                let file_name = url
+                    .path_segments()
+                    .ok_or_else(|| DownloadError::NotFileName(url.clone()))?
+                    .rev()
+                    .next()
+                    .ok_or_else(|| DownloadError::NotFileName(url.clone()))?;
+                save_path.push(file_name);
+            }
         }
 
-        let (size, response) = Self::get_size(&url).await?;
         let task_count = { max(min(task_count, size / block), 1) };
 
         let file = Self {
@@ -221,14 +226,17 @@ impl DownloadFile {
         Ok(file)
     }
 
-    /// get url file size
+    /// get url file size and file name
     #[inline]
-    async fn get_size(url: &Url) -> Result<(u64, Response)> {
+    async fn get_size_and_filename(url: &Url) -> Result<(u64, Option<String>, Response)> {
         let response = reqwest::Client::new().get(url.as_str()).send().await?;
         if response.status() == StatusCode::OK {
+            let filename=Self::parse_content_filename(response.headers());
+            let size= Self::parse_content_length(response.headers())
+                .ok_or_else(|| DownloadError::NotGetFileSize(url.clone()))?;
             Ok((
-                Self::parse_content_length(response.headers())
-                    .ok_or_else(|| DownloadError::NotGetFileSize(url.clone()))?,
+                size,
+                filename,
                 response,
             ))
         } else {
@@ -246,6 +254,24 @@ impl DownloadFile {
             .ok()?
             .parse::<u64>()
             .ok()
+    }
+
+    #[inline]
+    fn parse_content_filename(headers: &reqwest::header::HeaderMap)->Option<String> {
+        headers
+            .get(reqwest::header::CONTENT_DISPOSITION)?
+            .to_str()
+            .ok()?
+            .trim()
+            .split(';')
+            .find_map(|content| {
+                let content = content.trim();
+                if content.find("filename") == Some(0) {
+                    content.split('=').last()
+                } else {
+                    None
+                }
+            }).map_or(None, |x| Some(x.to_string()))
     }
 
     /// get url
