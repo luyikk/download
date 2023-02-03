@@ -14,7 +14,6 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use log::info;
 use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
