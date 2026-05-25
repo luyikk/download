@@ -1,6 +1,6 @@
 [package]
 name = "download-lib"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 repository = "https://github.com/luyikk/download"
 documentation = "https://docs.rs/download-file"
@@ -17,4 +17,4 @@ aqueue = "1.2"
 async-trait = "0.1"
 futures-util = "0.3"
 chrono = "0.4"
-mime_guess = "2"
+
