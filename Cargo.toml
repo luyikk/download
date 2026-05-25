@@ -1,6 +1,6 @@
 [package]
 name = "durl"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 license = "MIT/Apache-2.0"
 readme = "README.md"
@@ -15,8 +15,10 @@ download-lib = { path = "download-lib", version = "0.2.6" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 log = "0.4"
-env_logger = "0.9"
+env_logger = "0.11"
 structopt = "0.3"
+indicatif = { version = "0.18", features = ["tokio"] }
+humansize = "2"
 
 
 

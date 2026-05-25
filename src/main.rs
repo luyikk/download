@@ -1,5 +1,7 @@
 use anyhow::Result;
 use download_lib::DownloadFile;
+use humansize::{format_size, BINARY};
+use indicatif::{ProgressBar, ProgressStyle};
 use log::LevelFilter;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -13,7 +15,8 @@ async fn main() -> Result<()> {
         .filter_module("want", LevelFilter::Error)
         .filter_module("mio", LevelFilter::Error)
         .filter_module("rustls", LevelFilter::Error)
-        .filter_level(LevelFilter::Trace)
+        .filter_module("download_lib", LevelFilter::Error)
+        .filter_level(LevelFilter::Info)
         .init();
 
     match DownloadFile::start_download(opt.url, opt.save_path, opt.tasks, 1024 * 1024, opt.name)
@@ -21,75 +24,83 @@ async fn main() -> Result<()> {
     {
         Ok(download) => {
             let status = download.get_status();
-            //  tokio::spawn(async move{
-            //      while !status.is_finish() {
-            //          tokio::time::sleep(Duration::from_secs(1)).await;
-            //          log::info!("speed of progress:{}% {} K/s",status.get_percent_complete(),status.get_byte_sec()/1024);
-            //      }
-            //  });
-            //
-            //  while !download.is_finish() {
-            //      let mut s="".to_string();
-            //      std::io::stdin().read_line(&mut s).unwrap();
-            //      if download.is_start() {
-            //          download.suspend()
-            //      }else{
-            //          download.restart();
-            //      }
-            //  }
+            let total = status.get_size();
+            let size_known = total > 0;
+
+            // Build the correct progress bar style based on whether we know the size
+            let pb = if size_known {
+                let pb = ProgressBar::new(total);
+                pb.set_style(
+                    ProgressStyle::with_template(
+                        "{spinner:.green} [{elapsed_precise}] [{bar:45.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, ETA {eta})",
+                    )
+                    .unwrap()
+                    .progress_chars("█▉▊▋▌▍▎▏  "),
+                );
+                pb
+            } else {
+                let pb = ProgressBar::new_spinner();
+                pb.set_style(
+                    ProgressStyle::with_template(
+                        "{spinner:.green} [{elapsed_precise}] {bytes} downloaded ({bytes_per_sec})",
+                    )
+                    .unwrap(),
+                );
+                pb
+            };
+
+            pb.enable_steady_tick(Duration::from_millis(120));
 
             while !status.is_finish() {
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                let percent = status.get_percent_complete();
-                let speed_kb = status.get_byte_sec() / 1024;
-                if percent > 0.0 {
-                    log::info!("speed of progress:{}% {} K/s", percent, speed_kb);
-                } else {
-                    // Unknown size - show downloaded amount instead
-                    let down_mb = status.get_down_size() as f64 / 1024.0 / 1024.0;
-                    log::info!("downloaded: {:.2} MB  {} K/s", down_mb, speed_kb);
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                let down = status.get_down_size();
+                pb.set_position(down);
+
+                // Update the speed suffix manually for spinner mode
+                if !size_known {
+                    let speed = status.get_byte_sec();
+                    pb.set_message(format!("{}/s", format_size(speed, BINARY)));
                 }
             }
 
+            // Finish the bar cleanly
             if !status.is_error() {
-                log::info!(
-                    "url {} download finish,save to {}",
-                    status.url(),
-                    download.get_real_file_path()
-                );
+                pb.set_position(if size_known {
+                    total
+                } else {
+                    status.get_down_size()
+                });
+                pb.finish_with_message("✓ done");
+                log::info!("saved to: {}", download.get_real_file_path());
             } else {
-                log::info!(
-                    "url {} download is error:{}",
-                    status.url(),
-                    status.get_error().unwrap()
-                );
+                pb.abandon_with_message("✗ failed");
+                log::error!("download error: {}", status.get_error().unwrap());
             }
         }
         Err(err) => {
-            log::error!("down file fail:{}", err);
+            log::error!("down file fail: {}", err);
         }
     }
 
     Ok(())
 }
 
-// A basic example
 #[derive(StructOpt, Debug)]
-#[structopt(name = "basic")]
+#[structopt(name = "durl", about = "Fast multi-task HTTP downloader")]
 struct Opt {
-    /// http url,http server need support range
+    /// HTTP URL to download
     #[structopt(short = "u", long)]
     url: String,
 
-    /// save file path
+    /// Save file path (directory or full path)
     #[structopt(short = "s", long, parse(from_os_str), default_value = "./")]
     save_path: PathBuf,
 
-    /// number of concurrent download
+    /// Number of concurrent download tasks
     #[structopt(short = "t", long, default_value = "15")]
     tasks: u64,
 
-    /// custom filename for the downloaded file
+    /// Custom output filename
     #[structopt(short = "n", long)]
     name: Option<String>,
 }
