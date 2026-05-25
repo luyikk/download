@@ -11,16 +11,16 @@ description = "multi fiber download http file."
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-download-lib={path="download-lib"}
-tokio={version="1",features=["full"]}
+download-lib = { path = "0.2.5" }
+tokio = { version = "1", features = ["full"] }
 anyhow = "1"
-log="0.4"
+log = "0.4"
 env_logger = "0.9"
 structopt = "0.3"
 
 
 
 [profile.release]
-codegen-units=1
-lto="fat"
-panic="abort"
+codegen-units = 1
+lto = "fat"
+panic = "abort"
