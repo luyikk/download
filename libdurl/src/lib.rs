@@ -82,7 +82,43 @@ pub unsafe extern "C" fn durl_start(
     let item_ptr=item.clone();
     let key= handler.items.insert(item);
     handler._runtime.spawn(async move {
-        match DownloadFile::start_download(url, save_path, task, block).await {
+        match DownloadFile::start_download(url, save_path, task, block, None).await {
+            Ok(download) => {
+                let _ = item_ptr.down_core.set(download);
+            }
+            Err(err) => {
+                let _ = item_ptr.error.set(err);
+            }
+        }
+    });
+
+    key as u64
+}
+
+/// # Safety
+/// start now download url file to path,task is concurrent quantity
+/// if return nullptr use get_logs look log content analysis quest.
+/// url and path is cstr end is '\0',otherwise it will Undefined behavior
+#[no_mangle]
+pub unsafe extern "C" fn durl_start_file_name(
+    handler: &mut DownloadHandler,
+    url: *const c_char,
+    path: *const c_char,
+    file_name: *const c_char,
+    task: u64,
+    block: u64,
+)->u64 {
+    let url = CStr::from_ptr(url).to_str().unwrap().to_string();
+    let path = CStr::from_ptr(path).to_str().unwrap().to_string();
+    let file_name = CStr::from_ptr(file_name).to_str().unwrap().to_string();
+    let save_path = PathBuf::from(path);
+
+
+    let item=Arc::new(DownloadItem::default());
+    let item_ptr=item.clone();
+    let key= handler.items.insert(item);
+    handler._runtime.spawn(async move {
+        match DownloadFile::start_download(url, save_path, task, block, Some(file_name)).await {
             Ok(download) => {
                 let _ = item_ptr.down_core.set(download);
             }

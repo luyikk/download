@@ -10,14 +10,14 @@ use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 pub(crate) struct FileSave {
     save_path: PathBuf,
     real_path: PathBuf,
-    len: u64,
+    len: Option<u64>,
     file: Option<File>,
 }
 
 impl FileSave {
     /// create file save actor
     #[inline]
-    pub fn create(real_path: PathBuf, len: u64) -> Result<Actor<FileSave>> {
+    pub fn create(real_path: PathBuf, len: Option<u64>) -> Result<Actor<FileSave>> {
         let save_path = real_path.with_extension("dd");
         if save_path.exists() {
             std::fs::remove_file(save_path.as_path())?;
@@ -38,8 +38,12 @@ impl FileSave {
             .write(true)
             .open(self.save_path.as_path())
             .await?;
-        file.set_len(self.len).await?;
-        log::trace!("create file:{:?} size:{}", self.save_path, self.len);
+        if let Some(len) = self.len {
+            file.set_len(len).await?;
+            log::trace!("create file:{:?} size:{}", self.save_path, len);
+        } else {
+            log::trace!("create file:{:?} size:unknown (streaming)", self.save_path);
+        }
         self.file = Some(file);
         Ok(())
     }

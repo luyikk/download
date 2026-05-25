@@ -16,7 +16,9 @@ async fn main() -> Result<()> {
         .filter_level(LevelFilter::Trace)
         .init();
 
-    match DownloadFile::start_download(opt.url, opt.save_path, opt.tasks, 1024 * 1024).await {
+    match DownloadFile::start_download(opt.url, opt.save_path, opt.tasks, 1024 * 1024, opt.name)
+        .await
+    {
         Ok(download) => {
             let status = download.get_status();
             //  tokio::spawn(async move{
@@ -38,11 +40,15 @@ async fn main() -> Result<()> {
 
             while !status.is_finish() {
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                log::info!(
-                    "speed of progress:{}% {} K/s",
-                    status.get_percent_complete(),
-                    status.get_byte_sec() / 1024
-                );
+                let percent = status.get_percent_complete();
+                let speed_kb = status.get_byte_sec() / 1024;
+                if percent > 0.0 {
+                    log::info!("speed of progress:{}% {} K/s", percent, speed_kb);
+                } else {
+                    // Unknown size - show downloaded amount instead
+                    let down_mb = status.get_down_size() as f64 / 1024.0 / 1024.0;
+                    log::info!("downloaded: {:.2} MB  {} K/s", down_mb, speed_kb);
+                }
             }
 
             if !status.is_error() {
@@ -82,4 +88,8 @@ struct Opt {
     /// number of concurrent download
     #[structopt(short = "t", long, default_value = "15")]
     tasks: u64,
+
+    /// custom filename for the downloaded file
+    #[structopt(short = "n", long)]
+    name: Option<String>,
 }

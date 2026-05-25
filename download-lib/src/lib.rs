@@ -26,112 +26,194 @@ pub struct DownloadFile {
 }
 
 impl DownloadFile {
+    /// Build a shared reqwest client with common settings
+    fn build_client() -> reqwest::Client {
+        reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(10))
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .timeout(Duration::from_secs(300))
+            .connect_timeout(Duration::from_secs(30))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new())
+    }
+
     /// start download now
+    /// if `custom_filename` is Some, use it as the saved filename (when save_path is a directory)
     #[inline]
     pub async fn start_download<U: IntoUrl>(
         url: U,
         mut save_path: PathBuf,
         task_count: u64,
         block: u64,
+        custom_filename: Option<String>,
     ) -> Result<Self> {
         let url = url.into_url()?;
-        let (size,file_name, response) = Self::get_size_and_filename(&url).await?;
+        let client = Self::build_client();
+        let (size, file_name, response) = Self::get_size_and_filename(&client, &url).await?;
         if save_path.is_dir() {
-            if let Some(filename)=file_name{
-                save_path.push(filename);
-            }else{
-                let file_name = url
-                    .path_segments()
-                    .ok_or_else(|| DownloadError::NotFileName(url.clone()))?
-                    .rev()
-                    .next()
-                    .ok_or_else(|| DownloadError::NotFileName(url.clone()))?;
-                save_path.push(file_name);
-            }
+            let final_name = if let Some(name) = custom_filename {
+                name
+            } else if let Some(name) = file_name {
+                name
+            } else {
+                Self::extract_filename_from_url(&url)
+            };
+            save_path.push(final_name);
         }
 
-        let task_count = { max(min(task_count, size / block), 1) };
+        // If size is unknown, use streaming mode (single task)
+        if let Some(size) = size {
+            // Known size mode - original logic
+            let task_count = { max(min(task_count, size / block), 1) };
 
-        let file = Self {
-            task_count,
-            save_file: Arc::new(FileSave::create(save_path, size)?),
-            inner_status: Arc::new(DownloadInner {
-                size,
-                url,
-                is_start: Default::default(),
-                is_finish: Default::default(),
-                down_size: Default::default(),
-                byte_sec_total: Default::default(),
-                byte_sec: Default::default(),
-                error: OnceCell::default(),
-            }),
-        };
-        file.save_file.init().await?;
-        log::trace!("url file:{} init ok size:{}", file.inner_status.url, size);
-        if file.size() > 0 {
-            let size = file.size();
-            file.inner_status.is_start.store(true, Ordering::Release);
-            let connect_count = file.task_count;
+            let file = Self {
+                task_count,
+                save_file: Arc::new(FileSave::create(save_path, Some(size))?),
+                inner_status: Arc::new(DownloadInner {
+                    size: AtomicU64::new(size),
+                    url,
+                    is_start: Default::default(),
+                    is_finish: Default::default(),
+                    down_size: Default::default(),
+                    byte_sec_total: Default::default(),
+                    byte_sec: Default::default(),
+                    error: OnceCell::default(),
+                    size_known: true,
+                }),
+            };
+            file.save_file.init().await?;
+            log::trace!("url file:{} init ok size:{}", file.inner_status.url, size);
+            if size > 0 {
+                file.inner_status.is_start.store(true, Ordering::Release);
+                let connect_count = file.task_count;
 
-            if connect_count > 1 {
-                drop(response);
-                let block_size = size / connect_count;
-                let end_add_size = size % block_size;
-                assert_eq!(block_size * connect_count + end_add_size, size);
-                log::trace!(
-                    "computer task count:{}  block size:{} end add size:{}",
-                    connect_count,
-                    block_size,
-                    end_add_size
-                );
-                let save_file = file.save_file.clone();
-                let inner_status = file.inner_status.clone();
-                tokio::spawn(async move {
-                    let mut join_vec = Vec::with_capacity(connect_count as usize);
-                    for i in 0..connect_count {
-                        let down_size = if i == connect_count - 1 {
-                            block_size + end_add_size
-                        } else {
-                            block_size
-                        };
-                        let start = i * block_size;
-
-                        let save_file = save_file.clone();
-                        let inner_status = inner_status.clone();
-                        let join: JoinHandle<Result<()>> = tokio::spawn(async move {
-                            let end = start + down_size - 1;
-
-                            log::trace!(
-                                "task:{} start:{} down size:{} end:{} init",
-                                i,
-                                start,
-                                down_size,
-                                end
-                            );
-
-                            ReqwestFile::new(save_file, inner_status, start, end)
-                                .run()
-                                .await?;
-                            log::trace!("task:{} finish", i);
-                            Ok(())
-                        });
-                        join_vec.push(join);
-                    }
-
-                    let inner_status_sec = inner_status.clone();
+                if connect_count > 1 {
+                    drop(response);
+                    let block_size = size / connect_count;
+                    let end_add_size = size % block_size;
+                    assert_eq!(block_size * connect_count + end_add_size, size);
+                    log::trace!(
+                        "computer task count:{}  block size:{} end add size:{}",
+                        connect_count,
+                        block_size,
+                        end_add_size
+                    );
+                    let save_file = file.save_file.clone();
+                    let inner_status = file.inner_status.clone();
+                    let client = client.clone();
                     tokio::spawn(async move {
-                        while !inner_status_sec.is_finish() {
-                            inner_status_sec.byte_sec.store(
-                                inner_status_sec.byte_sec_total.swap(0, Ordering::Release),
-                                Ordering::Release,
-                            );
-                            sleep(Duration::from_secs(1)).await
-                        }
-                    });
+                        let mut join_vec = Vec::with_capacity(connect_count as usize);
+                        for i in 0..connect_count {
+                            let down_size = if i == connect_count - 1 {
+                                block_size + end_add_size
+                            } else {
+                                block_size
+                            };
+                            let start = i * block_size;
 
-                    for task in join_vec {
-                        match task.await {
-                            Ok(Err(err)) => {
+                            let save_file = save_file.clone();
+                            let inner_status = inner_status.clone();
+                            let client = client.clone();
+                            let join: JoinHandle<Result<()>> = tokio::spawn(async move {
+                                let end = start + down_size - 1;
+
+                                log::trace!(
+                                    "task:{} start:{} down size:{} end:{} init",
+                                    i,
+                                    start,
+                                    down_size,
+                                    end
+                                );
+
+                                ReqwestFile::new(save_file, inner_status, client, start, end)
+                                    .run()
+                                    .await?;
+                                log::trace!("task:{} finish", i);
+                                Ok(())
+                            });
+                            join_vec.push(join);
+                        }
+
+                        let inner_status_sec = inner_status.clone();
+                        tokio::spawn(async move {
+                            while !inner_status_sec.is_finish() {
+                                inner_status_sec.byte_sec.store(
+                                    inner_status_sec.byte_sec_total.swap(0, Ordering::Release),
+                                    Ordering::Release,
+                                );
+                                sleep(Duration::from_secs(1)).await
+                            }
+                        });
+
+                        for task in join_vec {
+                            match task.await {
+                                Ok(Err(err)) => {
+                                    log::error!("http download error:{:?}", err);
+                                    if !inner_status.error.initialized() {
+                                        if let Err(err) = inner_status.error.set(err) {
+                                            log::error!("set error fail:{}", err)
+                                        }
+                                    }
+                                }
+                                Err(err) => {
+                                    log::error!("join error:{:?}", err);
+                                    if !inner_status.error.initialized() {
+                                        if let Err(err) =
+                                            inner_status.error.set(DownloadError::JoinInError(err))
+                                        {
+                                            log::error!("set error fail:{}", err)
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        if let Err(err) = save_file.finish().await {
+                            log::error!("save file finish error:{:?}", err);
+                            if !inner_status.error.initialized() {
+                                if let Err(err) = inner_status.error.set(err) {
+                                    log::error!("set error fail:{}", err)
+                                }
+                            }
+                        }
+                        inner_status
+                            .down_size
+                            .store(inner_status.get_size(), Ordering::Release);
+                        inner_status.is_finish.store(true, Ordering::Release);
+                    });
+                } else {
+                    let save_file = file.save_file.clone();
+                    let inner_status = file.inner_status.clone();
+
+                    tokio::spawn(async move {
+                        let inner_status_sec = inner_status.clone();
+                        tokio::spawn(async move {
+                            while !inner_status_sec.is_finish() {
+                                inner_status_sec.byte_sec.store(
+                                    inner_status_sec.byte_sec_total.swap(0, Ordering::Release),
+                                    Ordering::Release,
+                                );
+                                sleep(Duration::from_secs(1)).await
+                            }
+                        });
+
+                        log::trace!(
+                            "start once task download url:{} size:{}",
+                            inner_status.url,
+                            size
+                        );
+
+                        match ReqwestFile::new(
+                            save_file.clone(),
+                            inner_status.clone(),
+                            client,
+                            0,
+                            size - 1,
+                        )
+                        .run_once(response)
+                        .await
+                        {
+                            Err(err) => {
                                 log::error!("http download error:{:?}", err);
                                 if !inner_status.error.initialized() {
                                     if let Err(err) = inner_status.error.set(err) {
@@ -139,105 +221,151 @@ impl DownloadFile {
                                     }
                                 }
                             }
-                            Err(err) => {
-                                log::error!("join error:{:?}", err);
-                                if !inner_status.error.initialized() {
-                                    if let Err(err) =
-                                        inner_status.error.set(DownloadError::JoinInError(err))
-                                    {
-                                        log::error!("set error fail:{}", err)
-                                    }
-                                }
-                            }
                             _ => {}
                         }
-                    }
-                    if let Err(err) = save_file.finish().await {
-                        log::error!("save file finish error:{:?}", err);
-                        if !inner_status.error.initialized() {
-                            if let Err(err) = inner_status.error.set(err) {
-                                log::error!("set error fail:{}", err)
-                            }
-                        }
-                    }
-                    inner_status
-                        .down_size
-                        .store(inner_status.size, Ordering::Release);
-                    inner_status.is_finish.store(true, Ordering::Release);
-                });
-            } else {
-                let save_file = file.save_file.clone();
-                let inner_status = file.inner_status.clone();
 
-                tokio::spawn(async move {
-                    let inner_status_sec = inner_status.clone();
-                    tokio::spawn(async move {
-                        while !inner_status_sec.is_finish() {
-                            inner_status_sec.byte_sec.store(
-                                inner_status_sec.byte_sec_total.swap(0, Ordering::Release),
-                                Ordering::Release,
-                            );
-                            sleep(Duration::from_secs(1)).await
-                        }
-                    });
-
-                    log::trace!(
-                        "start once task download url:{} size:{}",
-                        inner_status.url,
-                        size
-                    );
-
-                    match ReqwestFile::new(save_file.clone(), inner_status.clone(), 0, size - 1)
-                        .run_once(response)
-                        .await
-                    {
-                        Err(err) => {
-                            log::error!("http download error:{:?}", err);
+                        if let Err(err) = save_file.finish().await {
+                            log::error!("save file finish error:{:?}", err);
                             if !inner_status.error.initialized() {
                                 if let Err(err) = inner_status.error.set(err) {
                                     log::error!("set error fail:{}", err)
                                 }
                             }
                         }
-                        _ => {}
-                    }
 
-                    if let Err(err) = save_file.finish().await {
-                        log::error!("save file finish error:{:?}", err);
+                        inner_status
+                            .down_size
+                            .store(inner_status.get_size(), Ordering::Release);
+                        inner_status.is_finish.store(true, Ordering::Release);
+                    });
+                }
+            } else {
+                file.save_file.finish().await?;
+                file.inner_status.is_finish.store(true, Ordering::Release);
+            }
+
+            Ok(file)
+        } else {
+            // Unknown size - streaming mode
+            log::trace!("url file:{} size unknown, using streaming mode", url);
+            let file = Self {
+                task_count: 1,
+                save_file: Arc::new(FileSave::create(save_path, None)?),
+                inner_status: Arc::new(DownloadInner {
+                    size: AtomicU64::new(0),
+                    url,
+                    is_start: Default::default(),
+                    is_finish: Default::default(),
+                    down_size: Default::default(),
+                    byte_sec_total: Default::default(),
+                    byte_sec: Default::default(),
+                    error: OnceCell::default(),
+                    size_known: false,
+                }),
+            };
+            file.save_file.init().await?;
+            file.inner_status.is_start.store(true, Ordering::Release);
+
+            let save_file = file.save_file.clone();
+            let inner_status = file.inner_status.clone();
+
+            tokio::spawn(async move {
+                let inner_status_sec = inner_status.clone();
+                tokio::spawn(async move {
+                    while !inner_status_sec.is_finish() {
+                        inner_status_sec.byte_sec.store(
+                            inner_status_sec.byte_sec_total.swap(0, Ordering::Release),
+                            Ordering::Release,
+                        );
+                        sleep(Duration::from_secs(1)).await
+                    }
+                });
+
+                log::trace!("start streaming download url:{}", inner_status.url);
+
+                match ReqwestFile::new_streaming(save_file.clone(), inner_status.clone(), client)
+                    .run_streaming(response)
+                    .await
+                {
+                    Err(err) => {
+                        log::error!("http download error:{:?}", err);
                         if !inner_status.error.initialized() {
                             if let Err(err) = inner_status.error.set(err) {
                                 log::error!("set error fail:{}", err)
                             }
                         }
                     }
+                    _ => {}
+                }
 
-                    inner_status
-                        .down_size
-                        .store(inner_status.size, Ordering::Release);
-                    inner_status.is_finish.store(true, Ordering::Release);
-                });
+                if let Err(err) = save_file.finish().await {
+                    log::error!("save file finish error:{:?}", err);
+                    if !inner_status.error.initialized() {
+                        if let Err(err) = inner_status.error.set(err) {
+                            log::error!("set error fail:{}", err)
+                        }
+                    }
+                }
+
+                // Set final size
+                inner_status
+                    .size
+                    .store(inner_status.get_down_size(), Ordering::Release);
+                inner_status.is_finish.store(true, Ordering::Release);
+            });
+
+            Ok(file)
+        }
+    }
+
+    /// Extract filename from URL path, with fallback to generated name
+    fn extract_filename_from_url(url: &Url) -> String {
+        // Try to extract from URL path
+        if let Some(segments) = url.path_segments() {
+            if let Some(last) = segments.rev().next() {
+                let decoded = urlencoding_decode(last);
+                if !decoded.is_empty() && decoded != "/" && decoded.contains('.') {
+                    return decoded;
+                }
             }
-        } else {
-            file.save_file.finish().await?;
-            file.inner_status.is_finish.store(true, Ordering::Release);
         }
 
-        Ok(file)
+        // Try to guess extension from URL path
+        let path = url.path();
+        let ext = if path.contains('.') {
+            path.rsplit('.').next().unwrap_or("bin")
+        } else {
+            "bin"
+        };
+
+        // Generate filename with timestamp
+        let now = chrono::Local::now();
+        format!("download_{}.{}", now.format("%Y%m%d_%H%M%S"), ext)
     }
 
     /// get url file size and file name
     #[inline]
-    async fn get_size_and_filename(url: &Url) -> Result<(u64, Option<String>, Response)> {
-        let response = reqwest::Client::new().get(url.as_str()).send().await?;
-        if response.status() == StatusCode::OK {
-            let filename=Self::parse_content_filename(response.headers());
-            let size= Self::parse_content_length(response.headers())
-                .ok_or_else(|| DownloadError::NotGetFileSize(url.clone()))?;
-            Ok((
-                size,
-                filename,
-                response,
-            ))
+    async fn get_size_and_filename(
+        client: &reqwest::Client,
+        url: &Url,
+    ) -> Result<(Option<u64>, Option<String>, Response)> {
+        let response = client.get(url.as_str()).send().await?;
+
+        let status = response.status();
+        if status == StatusCode::OK || status == StatusCode::PARTIAL_CONTENT {
+            let filename = Self::parse_content_filename(response.headers());
+            let size = Self::parse_content_length(response.headers());
+
+            // Also try to get filename from final URL (after redirects)
+            let final_filename = if filename.is_none() {
+                Self::parse_content_filename_from_url(response.url())
+            } else {
+                filename
+            };
+
+            log::trace!("url:{} size:{:?} filename:{:?}", url, size, final_filename);
+
+            Ok((size, final_filename, response))
         } else {
             Err(DownloadError::HttpStatusError(
                 response.status().to_string(),
@@ -256,21 +384,41 @@ impl DownloadFile {
     }
 
     #[inline]
-    fn parse_content_filename(headers: &reqwest::header::HeaderMap)->Option<String> {
-        headers
+    fn parse_content_filename(headers: &reqwest::header::HeaderMap) -> Option<String> {
+        let disposition = headers
             .get(reqwest::header::CONTENT_DISPOSITION)?
             .to_str()
-            .ok()?
-            .trim()
-            .split(';')
-            .find_map(|content| {
-                let content = content.trim();
-                if content.find("filename") == Some(0) {
-                    content.split('=').last()
-                } else {
-                    None
-                }
-            }).map_or(None, |x| Some(x.to_string()))
+            .ok()?;
+
+        disposition.trim().split(';').find_map(|content| {
+            let content = content.trim();
+            // Handle both filename and filename*
+            if content.starts_with("filename*=") {
+                // RFC 5987: filename*=UTF-8''encoded_name
+                let value = content.split('\'').last()?;
+                Some(urlencoding_decode(value))
+            } else if content.starts_with("filename=") {
+                let value = content.split('=').nth(1)?;
+                // Remove surrounding quotes if present
+                let value = value.trim_matches('"').trim_matches('\'');
+                Some(value.to_string())
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Try to extract a meaningful filename from the final URL (after redirects)
+    #[inline]
+    fn parse_content_filename_from_url(url: &Url) -> Option<String> {
+        let segments = url.path_segments()?;
+        let last = segments.rev().next()?;
+        let decoded = urlencoding_decode(last);
+        if !decoded.is_empty() && decoded != "/" && decoded.contains('.') {
+            Some(decoded)
+        } else {
+            None
+        }
     }
 
     /// get url
@@ -288,7 +436,7 @@ impl DownloadFile {
     /// file size
     #[inline]
     pub fn size(&self) -> u64 {
-        self.inner_status.size
+        self.inner_status.get_size()
     }
 
     /// get down size
@@ -327,6 +475,12 @@ impl DownloadFile {
         self.save_file.get_real_file_path()
     }
 
+    /// get save file real path
+    #[inline]
+    pub fn get_save_file_path(&self) -> String {
+        self.save_file.get_save_file_path()
+    }
+
     /// suspend download
     #[inline]
     pub fn suspend(&self) {
@@ -340,16 +494,38 @@ impl DownloadFile {
     }
 }
 
+/// Simple percent-decoding for URL components
+fn urlencoding_decode(s: &str) -> String {
+    let mut result = Vec::new();
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(byte) =
+                u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+            {
+                result.push(byte);
+                i += 3;
+                continue;
+            }
+        }
+        result.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8(result).unwrap_or_else(|_| s.to_string())
+}
+
 /// download status
 pub struct DownloadInner {
     url: Url,
-    size: u64,
+    size: AtomicU64,
     down_size: AtomicU64,
     is_start: AtomicBool,
     is_finish: AtomicBool,
     error: OnceCell<DownloadError>,
     byte_sec: AtomicU64,
     byte_sec_total: AtomicU64,
+    size_known: bool,
 }
 
 impl DownloadInner {
@@ -357,6 +533,12 @@ impl DownloadInner {
     #[inline]
     pub fn url(&self) -> &str {
         self.url.as_str()
+    }
+
+    /// get size
+    #[inline]
+    pub fn get_size(&self) -> u64 {
+        self.size.load(Ordering::Acquire)
     }
 
     /// is start
@@ -386,8 +568,15 @@ impl DownloadInner {
     /// get complete percent
     #[inline]
     pub fn get_percent_complete(&self) -> f64 {
-        let current =
-            self.down_size.load(Ordering::Acquire) as f64 / self.size.max(1) as f64 * 100.0;
+        let size = self.get_size();
+        if !self.size_known && !self.is_finish() {
+            // Unknown size, can't compute percentage
+            return 0.0;
+        }
+        if size == 0 {
+            return if self.is_finish() { 100.0 } else { 0.0 };
+        }
+        let current = self.down_size.load(Ordering::Acquire) as f64 / size.max(1) as f64 * 100.0;
         (current * 100.0).round() / 100.0
     }
 
