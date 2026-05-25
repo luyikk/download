@@ -1,6 +1,6 @@
 [package]
 name = "download-lib"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 repository = "https://github.com/luyikk/download"
 documentation = "https://docs.rs/download-file"
@@ -9,12 +9,13 @@ license = "MIT/Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest= { version = "0.11" , default-features=false, features = ["stream","rustls-tls"]}
+reqwest= { version = "0.13" , default-features=false, features = ["stream","rustls"]}
 tokio={version="1",features=["full"]}
-thiserror = "1.0"
+thiserror = "2.0"
 log="0.4"
 aqueue = "1.2"
 async-trait = "0.1"
 futures-util = "0.3"
 chrono = "0.4"
+url = "2"
 

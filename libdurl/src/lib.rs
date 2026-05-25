@@ -5,6 +5,7 @@ use download_lib::{DownloadError, DownloadFile};
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::path::PathBuf;
+use std::ptr;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tokio::sync::OnceCell;
@@ -27,7 +28,50 @@ pub struct DownloadItem{
 /// Download handler context
 pub struct DownloadHandler {
     _runtime: Runtime,
-    items:slab::Slab<Arc<DownloadItem>>
+    items: slab::Slab<Arc<DownloadItem>>,
+}
+
+fn copy_cstr(dst: *mut c_char, text: &str) -> u32 {
+    if dst.is_null() {
+        return 0;
+    }
+    let bytes = text.as_bytes();
+    unsafe {
+        ptr::copy_nonoverlapping(bytes.as_ptr().cast::<c_char>(), dst, bytes.len());
+        *dst.add(bytes.len()) = 0;
+    }
+    (bytes.len() + 1) as u32
+}
+
+unsafe fn from_cstr(ptr: *const c_char) -> Option<String> {
+    if ptr.is_null() {
+        return None;
+    }
+    CStr::from_ptr(ptr).to_str().ok().map(|s| s.to_string())
+}
+
+fn spawn_download(
+    handler: &mut DownloadHandler,
+    url: String,
+    save_path: PathBuf,
+    task: u64,
+    block: u64,
+    file_name: Option<String>,
+) -> u64 {
+    let item = Arc::new(DownloadItem::default());
+    let item_ptr = item.clone();
+    let key = handler.items.insert(item);
+    handler._runtime.spawn(async move {
+        match DownloadFile::start_download(url, save_path, task, block, file_name).await {
+            Ok(download) => {
+                let _ = item_ptr.down_core.set(download);
+            }
+            Err(err) => {
+                let _ = item_ptr.error.set(err);
+            }
+        }
+    });
+    key as u64
 }
 
 
@@ -42,7 +86,7 @@ pub extern "C" fn durl_create(thread_count:u32) -> *mut DownloadHandler {
 
     Box::into_raw(Box::new(DownloadHandler {
         _runtime: runtime,
-        items: Default::default()
+        items: Default::default(),
     }))
 }
 
@@ -50,6 +94,9 @@ pub extern "C" fn durl_create(thread_count:u32) -> *mut DownloadHandler {
 /// free DownloadHandler
 #[no_mangle]
 pub unsafe extern "C" fn durl_release(handler: *mut DownloadHandler) {
+    if handler.is_null() {
+        return;
+    }
     let handler = Box::from_raw(handler);
     drop(handler)
 }
@@ -57,7 +104,9 @@ pub unsafe extern "C" fn durl_release(handler: *mut DownloadHandler) {
 /// clean key money
 #[no_mangle]
 pub extern "C" fn durl_clean(handler: &mut DownloadHandler,key:u64){
-    handler.items.remove(key as usize);
+    if handler.items.contains(key as usize) {
+        handler.items.remove(key as usize);
+    }
 }
 
 
@@ -73,26 +122,17 @@ pub unsafe extern "C" fn durl_start(
     task: u64,
     block: u64,
 )->u64 {
-    let url = CStr::from_ptr(url).to_str().unwrap().to_string();
-    let path = CStr::from_ptr(path).to_str().unwrap().to_string();
+    let url = match from_cstr(url) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
+    let path = match from_cstr(path) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
     let save_path = PathBuf::from(path);
 
-
-    let item=Arc::new(DownloadItem::default());
-    let item_ptr=item.clone();
-    let key= handler.items.insert(item);
-    handler._runtime.spawn(async move {
-        match DownloadFile::start_download(url, save_path, task, block, None).await {
-            Ok(download) => {
-                let _ = item_ptr.down_core.set(download);
-            }
-            Err(err) => {
-                let _ = item_ptr.error.set(err);
-            }
-        }
-    });
-
-    key as u64
+    spawn_download(handler, url, save_path, task, block, None)
 }
 
 /// # Safety
@@ -108,27 +148,21 @@ pub unsafe extern "C" fn durl_start_file_name(
     task: u64,
     block: u64,
 )->u64 {
-    let url = CStr::from_ptr(url).to_str().unwrap().to_string();
-    let path = CStr::from_ptr(path).to_str().unwrap().to_string();
-    let file_name = CStr::from_ptr(file_name).to_str().unwrap().to_string();
+    let url = match from_cstr(url) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
+    let path = match from_cstr(path) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
+    let file_name = match from_cstr(file_name) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
     let save_path = PathBuf::from(path);
 
-
-    let item=Arc::new(DownloadItem::default());
-    let item_ptr=item.clone();
-    let key= handler.items.insert(item);
-    handler._runtime.spawn(async move {
-        match DownloadFile::start_download(url, save_path, task, block, Some(file_name)).await {
-            Ok(download) => {
-                let _ = item_ptr.down_core.set(download);
-            }
-            Err(err) => {
-                let _ = item_ptr.error.set(err);
-            }
-        }
-    });
-
-    key as u64
+    spawn_download(handler, url, save_path, task, block, Some(file_name))
 }
 
 /// get download is start
@@ -160,6 +194,48 @@ pub extern "C" fn durl_is_downloading_finish(handler: &DownloadHandler,key:u64) 
     }else{
         false
     }
+}
+
+#[no_mangle]
+pub extern "C" fn durl_suspend(handler: &DownloadHandler, key: u64) {
+    if let Some(item) = handler.items.get(key as usize) {
+        if let Some(download) = item.down_core.get() {
+            download.suspend();
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn durl_restart(handler: &DownloadHandler, key: u64) {
+    if let Some(item) = handler.items.get(key as usize) {
+        if let Some(download) = item.down_core.get() {
+            download.restart();
+        }
+    }
+}
+
+/// # Safety
+/// get temp download save path (ends with .dd), returns copied c-string length
+#[no_mangle]
+pub unsafe extern "C" fn durl_get_save_file_path(handler: &DownloadHandler, key: u64, msg: *mut c_char) -> u32 {
+    if let Some(item) = handler.items.get(key as usize) {
+        if let Some(download) = item.down_core.get() {
+            return copy_cstr(msg, &download.get_save_file_path());
+        }
+    }
+    0
+}
+
+/// # Safety
+/// get final file path, returns copied c-string length
+#[no_mangle]
+pub unsafe extern "C" fn durl_get_real_file_path(handler: &DownloadHandler, key: u64, msg: *mut c_char) -> u32 {
+    if let Some(item) = handler.items.get(key as usize) {
+        if let Some(download) = item.down_core.get() {
+            return copy_cstr(msg, &download.get_real_file_path());
+        }
+    }
+    0
 }
 
 /// get state
@@ -209,14 +285,60 @@ pub unsafe extern "C" fn durl_get_error_str(handler: &DownloadHandler,key:u64, m
     if let Some(item)=handler.items.get(key as usize) {
         if let Some(err) = item.error.get() {
             let err_msg = cstr!(err);
-            let len = err_msg.len();
-            msg.copy_from(err_msg.as_ptr().cast(), len as usize);
+            let _ = copy_cstr(msg, &err_msg);
         } else if let Some(download) = item.down_core.get() {
             if let Some(err) = download.get_error() {
                 let err_msg = cstr!(err);
-                let len = err_msg.len();
-                msg.copy_from(err_msg.as_ptr().cast(), len as usize);
+                let _ = copy_cstr(msg, &err_msg);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::CString;
+
+    #[test]
+    fn copy_cstr_writes_null_terminated_data() {
+        let mut buf = vec![0_i8; 16];
+        let len = copy_cstr(buf.as_mut_ptr(), "abc");
+        assert_eq!(len, 4);
+        assert_eq!(buf[0], b'a' as i8);
+        assert_eq!(buf[1], b'b' as i8);
+        assert_eq!(buf[2], b'c' as i8);
+        assert_eq!(buf[3], 0);
+    }
+
+    #[test]
+    fn copy_cstr_null_ptr_returns_zero() {
+        let len = copy_cstr(ptr::null_mut(), "abc");
+        assert_eq!(len, 0);
+    }
+
+    #[test]
+    fn clean_invalid_key_no_panic() {
+        let handler = unsafe { &mut *durl_create(1) };
+        durl_clean(handler, 999);
+        unsafe { durl_release(handler) };
+    }
+
+    #[test]
+    fn start_with_null_url_returns_sentinel() {
+        let handler = unsafe { &mut *durl_create(1) };
+        let path = CString::new("./").unwrap();
+        let key = unsafe { durl_start(handler, ptr::null(), path.as_ptr(), 1, 1024) };
+        assert_eq!(key, u64::MAX);
+        unsafe { durl_release(handler) };
+    }
+
+    #[test]
+    fn get_real_path_invalid_key_returns_zero() {
+        let handler = unsafe { &mut *durl_create(1) };
+        let mut buf = vec![0_i8; 260];
+        let len = unsafe { durl_get_real_file_path(handler, 999, buf.as_mut_ptr()) };
+        assert_eq!(len, 0);
+        unsafe { durl_release(handler) };
     }
 }

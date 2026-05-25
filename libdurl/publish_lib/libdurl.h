@@ -28,10 +28,31 @@ uint64_t durl_start(DownloadHandler *handler,
                     uint64_t task,
                     uint64_t block);
 
+/// # Safety
+/// start download with a custom output file name
+uint64_t durl_start_file_name(DownloadHandler *handler,
+                              const char *url,
+                              const char *path,
+                              const char *file_name,
+                              uint64_t task,
+                              uint64_t block);
+
 /// get download is start
 bool durl_is_downloading(DownloadHandler *handler, uint64_t key);
 
 bool durl_is_downloading_finish(const DownloadHandler *handler, uint64_t key);
+
+void durl_suspend(const DownloadHandler *handler, uint64_t key);
+
+void durl_restart(const DownloadHandler *handler, uint64_t key);
+
+/// # Safety
+/// get temp download path (.dd), returns copied c-string length
+uint32_t durl_get_save_file_path(const DownloadHandler *handler, uint64_t key, char *msg);
+
+/// # Safety
+/// get final output file path, returns copied c-string length
+uint32_t durl_get_real_file_path(const DownloadHandler *handler, uint64_t key, char *msg);
 
 /// get state
 /// if error return error msg len

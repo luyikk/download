@@ -356,9 +356,10 @@ impl DownloadFile {
             let filename = Self::parse_content_filename(response.headers());
             let size = Self::parse_content_length(response.headers());
 
-            // Also try to get filename from final URL (after redirects)
+            // Try filename sources in order: header -> query params -> final URL path
             let final_filename = if filename.is_none() {
-                Self::parse_content_filename_from_url(response.url())
+                Self::parse_content_filename_from_query(response.url())
+                    .or_else(|| Self::parse_content_filename_from_url(response.url()))
             } else {
                 filename
             };
@@ -392,16 +393,21 @@ impl DownloadFile {
 
         disposition.trim().split(';').find_map(|content| {
             let content = content.trim();
-            // Handle both filename and filename*
             if content.starts_with("filename*=") {
-                // RFC 5987: filename*=UTF-8''encoded_name
-                let value = content.split('\'').last()?;
-                Some(urlencoding_decode(value))
+                // RFC 5987: filename*=UTF-8''percent-encoded-name
+                let value = content.splitn(2, '=').nth(1)?;
+                // Strip charset and language prefix  e.g. "UTF-8''"
+                let value = if let Some(pos) = value.rfind("''") {
+                    &value[pos + 2..]
+                } else {
+                    value
+                };
+                Some(sanitize_filename(&form_decode(value.trim_matches('"'))))
             } else if content.starts_with("filename=") {
-                let value = content.split('=').nth(1)?;
-                // Remove surrounding quotes if present
+                let value = content.splitn(2, '=').nth(1)?;
                 let value = value.trim_matches('"').trim_matches('\'');
-                Some(value.to_string())
+                // Decode percent-encoding and '+' as space
+                Some(sanitize_filename(&form_decode(value)))
             } else {
                 None
             }
@@ -415,10 +421,26 @@ impl DownloadFile {
         let last = segments.rev().next()?;
         let decoded = urlencoding_decode(last);
         if !decoded.is_empty() && decoded != "/" && decoded.contains('.') {
-            Some(decoded)
+            Some(sanitize_filename(&decoded))
         } else {
             None
         }
+    }
+
+    /// Try to extract filename from URL query params like fn/fin/filename.
+    /// Uses URL form decoding so `+` becomes space and `%xx` becomes UTF-8 chars.
+    #[inline]
+    fn parse_content_filename_from_query(url: &Url) -> Option<String> {
+        let query = url.query()?;
+        for (k, v) in url::form_urlencoded::parse(query.as_bytes()) {
+            if matches!(k.as_ref(), "filename" | "file_name" | "fn" | "fin") {
+                let value = v.trim().to_string();
+                if !value.is_empty() {
+                    return Some(sanitize_filename(&value));
+                }
+            }
+        }
+        None
     }
 
     /// get url
@@ -494,25 +516,58 @@ impl DownloadFile {
     }
 }
 
-/// Simple percent-decoding for URL components
+/// Percent-decode a URL path component (`%xx` → UTF-8, `+` kept as-is).
 fn urlencoding_decode(s: &str) -> String {
-    let mut result = Vec::new();
-    let bytes = s.as_bytes();
+    percent_decode_bytes(s.as_bytes(), false)
+}
+
+/// Decode an application/x-www-form-urlencoded value:
+/// `+` → space, `%xx` → UTF-8.
+/// Used for `Content-Disposition: filename=` and URL query params.
+fn form_decode(s: &str) -> String {
+    percent_decode_bytes(s.as_bytes(), true)
+}
+
+fn percent_decode_bytes(bytes: &[u8], plus_as_space: bool) -> String {
+    let mut result: Vec<u8> = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(byte) =
-                u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
-            {
-                result.push(byte);
-                i += 3;
-                continue;
+        match bytes[i] {
+            b'+' if plus_as_space => {
+                result.push(b' ');
+                i += 1;
+            }
+            b'%' if i + 2 < bytes.len() => {
+                if let Ok(hi) = std::str::from_utf8(&bytes[i + 1..i + 3]) {
+                    if let Ok(byte) = u8::from_str_radix(hi, 16) {
+                        result.push(byte);
+                        i += 3;
+                        continue;
+                    }
+                }
+                result.push(bytes[i]);
+                i += 1;
+            }
+            b => {
+                result.push(b);
+                i += 1;
             }
         }
-        result.push(bytes[i]);
-        i += 1;
     }
-    String::from_utf8(result).unwrap_or_else(|_| s.to_string())
+    String::from_utf8(result).unwrap_or_else(|_| String::from_utf8_lossy(bytes).into_owned())
+}
+
+/// Strip characters that are illegal in Windows/Linux file names.
+fn sanitize_filename(name: &str) -> String {
+    let s: String = name
+        .chars()
+        .map(|c| match c {
+            '<' | '>' | ':' | '"' | '|' | '?' | '*' | '\0'..='\x1f' => '_',
+            c => c,
+        })
+        .collect();
+    // Trim trailing dots/spaces (Windows disallows them)
+    s.trim_end_matches(['.', ' ']).to_string()
 }
 
 /// download status
@@ -597,5 +652,85 @@ impl DownloadInner {
     fn add_down_size(&self, len: u64) {
         self.down_size.fetch_add(len, Ordering::Release);
         self.byte_sec_total.fetch_add(len, Ordering::Release);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn form_decode_handles_plus_as_space() {
+        assert_eq!(form_decode("PS4+slim"), "PS4 slim");
+    }
+
+    #[test]
+    fn form_decode_handles_percent_encoded_utf8() {
+        // %E6%89%8B%E6%9F%84 = 手柄
+        assert_eq!(form_decode("%E6%89%8B%E6%9F%84"), "手柄");
+    }
+
+    #[test]
+    fn form_decode_baidu_filename() {
+        assert_eq!(
+            form_decode("PS4+slim%E6%89%8B%E6%9F%84.zip"),
+            "PS4 slim手柄.zip"
+        );
+    }
+
+    #[test]
+    fn urlencoding_decode_keeps_plus_literal() {
+        // In URL path, '+' is NOT a space
+        assert_eq!(urlencoding_decode("PS4+slim"), "PS4+slim");
+    }
+
+    #[test]
+    fn urlencoding_decode_handles_percent_encoded_utf8() {
+        assert_eq!(urlencoding_decode("%E6%89%8B%E6%9F%84"), "手柄");
+    }
+
+    #[test]
+    fn sanitize_filename_removes_illegal_chars() {
+        assert_eq!(sanitize_filename("a<b>c:d.zip"), "a_b_c_d.zip");
+    }
+
+    #[test]
+    fn sanitize_filename_trims_trailing_dots() {
+        assert_eq!(sanitize_filename("file.zip.."), "file.zip");
+    }
+
+    #[test]
+    fn parse_content_filename_decodes_header() {
+        let mut map = reqwest::header::HeaderMap::new();
+        map.insert(
+            reqwest::header::CONTENT_DISPOSITION,
+            reqwest::header::HeaderValue::from_static(
+                "attachment; filename=PS4+slim%E6%89%8B%E6%9F%84.zip",
+            ),
+        );
+        let name = DownloadFile::parse_content_filename(&map).unwrap();
+        assert_eq!(name, "PS4 slim手柄.zip");
+    }
+
+    #[test]
+    fn parse_content_filename_star_rfc5987() {
+        let mut map = reqwest::header::HeaderMap::new();
+        map.insert(
+            reqwest::header::CONTENT_DISPOSITION,
+            reqwest::header::HeaderValue::from_static(
+                "attachment; filename*=UTF-8''PS4%20slim%E6%89%8B%E6%9F%84.zip",
+            ),
+        );
+        let name = DownloadFile::parse_content_filename(&map).unwrap();
+        assert_eq!(name, "PS4 slim手柄.zip");
+    }
+
+    #[test]
+    fn parse_content_filename_from_query_decodes() {
+        let url: Url = "https://example.com/dl?fn=PS4+slim%E6%89%8B%E6%9F%84.zip"
+            .parse()
+            .unwrap();
+        let name = DownloadFile::parse_content_filename_from_query(&url).unwrap();
+        assert_eq!(name, "PS4 slim手柄.zip");
     }
 }
