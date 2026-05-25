@@ -11,7 +11,7 @@ description = "multi fiber download http file."
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-download-lib = { path = "0.2.5" }
+download-lib = { version = "0.2.5" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 log = "0.4"
