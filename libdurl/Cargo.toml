@@ -6,15 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name="libdurl"
-crate-type=["staticlib"]
+name = "libdurl"
+crate-type = ["staticlib"]
 
 [dependencies]
-download-lib = {path="0.2.5"}
-tokio = {version="1",features=["full"]}
+download-lib = { path = "0.2.5" }
+tokio = { version = "1", features = ["full"] }
 slab = "0.4"
 
 [profile.release]
-codegen-units=1
-lto="fat"
-panic="abort"
+codegen-units = 1
+lto = "fat"
+panic = "abort"
