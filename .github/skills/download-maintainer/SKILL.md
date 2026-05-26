@@ -10,12 +10,12 @@ Read this document completely before making any change to this repository.
 ## Repository Map
 ```
 D:\rustprojects\download\
-├── Cargo.toml                    # durl binary crate  (version 0.2.5)
+├── Cargo.toml                    # durl binary crate  (version 0.2.7)
 ├── README.md                     # root doc (keep in sync with CLI)
 ├── src/
 │   └── main.rs                   # CLI: structopt Opt + indicatif progress bar
 ├── download-lib/
-│   ├── Cargo.toml                # library crate      (version 0.2.6)
+│   ├── Cargo.toml                # library crate      (version 0.2.7)
 │   ├── README.md                 # library API manual
 │   └── src/
 │       ├── lib.rs                # PUBLIC API: DownloadFile, DownloadInner
@@ -29,13 +29,13 @@ D:\rustprojects\download\
 ```
 ## Current Versions
 | Crate | Version |
-|---|---|
-| durl | 0.2.5 |
-| download-lib | 0.2.6 |
-| libdurl | 0.1.0 |
+|---|---------|
+| durl | 0.2.7   |
+| download-lib | 0.2.7   |
+| libdurl | 0.1.0   |
 Deps:
-- Cargo.toml         -> download-lib = { path = "download-lib", version = "0.2.6" }
-- libdurl/Cargo.toml -> download-lib = { path = "../download-lib", version = "0.2.5" }
+- Cargo.toml         -> download-lib = { path = "download-lib", version = "0.2.7" }
+- libdurl/Cargo.toml -> download-lib = { path = "../download-lib", version = "0.2.7" }
 When bumping download-lib bump BOTH pins above.
 ## start_download Signature (6 parameters)
 ```rust
