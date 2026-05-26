@@ -19,8 +19,15 @@ async fn main() -> Result<()> {
         .filter_level(LevelFilter::Info)
         .init();
 
-    match DownloadFile::start_download(opt.url, opt.save_path, opt.tasks, 1024 * 1024, opt.name)
-        .await
+    match DownloadFile::start_download(
+        opt.url,
+        opt.save_path,
+        opt.tasks,
+        1024 * 1024,
+        opt.name,
+        opt.cookies,
+    )
+    .await
     {
         Ok(download) => {
             let status = download.get_status();
@@ -103,4 +110,8 @@ struct Opt {
     /// Custom output filename
     #[structopt(short = "n", long)]
     name: Option<String>,
+
+    /// Cookies in JSON format, e.g. '{"session":"abc"}' or '[{"name":"s","value":"abc"}]'
+    #[structopt(short = "c", long)]
+    cookies: Option<String>,
 }

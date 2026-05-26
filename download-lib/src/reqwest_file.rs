@@ -10,19 +10,26 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::{sleep, timeout};
 
-/// http download file
+/// Exponential backoff delay for retry attempt `attempt` (0-based).
+/// attempt 0 → 300 ms, 1 → 600 ms, …, 9 → 3 000 ms, capped at 5 s.
+#[inline]
+fn retry_delay(attempt: u32) -> Duration {
+    Duration::from_millis((300 * (attempt as u64 + 1)).min(5_000))
+}
+
+/// HTTP range downloader for a single file block.
 pub(crate) struct ReqwestFile {
     save_file: Arc<Actor<FileSave>>,
     inner_status: Arc<DownloadInner>,
     client: reqwest::Client,
     start: u64,
     end: u64,
+    /// Current write position (advances as data arrives).
     current: u64,
-    #[allow(dead_code)]
-    streaming: bool,
 }
 
 impl ReqwestFile {
+    /// Range-download mode: download bytes `start..=end`.
     pub fn new(
         save_file: Arc<Actor<FileSave>>,
         inner_status: Arc<DownloadInner>,
@@ -37,240 +44,210 @@ impl ReqwestFile {
             start,
             end,
             current: start,
-            streaming: false,
         }
     }
 
-    /// Create a new streaming downloader (for unknown file size)
+    /// Streaming mode: unknown size, sequential append.
     pub fn new_streaming(
         save_file: Arc<Actor<FileSave>>,
         inner_status: Arc<DownloadInner>,
         client: reqwest::Client,
     ) -> Self {
-        Self {
-            save_file,
-            inner_status,
-            client,
-            start: 0,
-            end: 0,
-            current: 0,
-            streaming: true,
-        }
+        Self::new(save_file, inner_status, client, 0, 0)
     }
 
+    // ── Range download ────────────────────────────────────────────────────────
+
+    /// Download the assigned byte range, retrying up to 10 times with backoff.
     #[inline]
-    pub async fn run(&mut self) -> Result<()> {
-        while !self.inner_status.is_finish() && self.current < self.end {
+    pub async fn run(mut self) -> Result<()> {
+        let mut attempt: u32 = 0;
+        while !self.inner_status.is_finish() && self.current <= self.end {
             if !self.inner_status.is_start.load(Ordering::Acquire) {
-                sleep(Duration::from_secs(1)).await
-            } else {
-                're: for i in (0..10).rev() {
-                    let request_data = {
-                        self.client
-                            .get(self.inner_status.url.as_str())
-                            .header(
-                                reqwest::header::RANGE,
-                                format!("bytes={}-{}", self.current, self.end),
-                            )
-                            .send()
-                    };
-
-                    match timeout(Duration::from_secs(15), request_data).await {
-                        Ok(Ok(response)) => {
-                            if response.status() == StatusCode::OK
-                                || response.status() == StatusCode::PARTIAL_CONTENT
-                            {
-                                log::trace!(
-                                    "start download url block:{} start:{} end:{} status:{:?}",
-                                    self.inner_status.url,
-                                    self.current,
-                                    self.end,
-                                    response.headers().get(reqwest::header::CONTENT_RANGE)
-                                );
-                                if self.read_stream(response).await? {
-                                    break 're;
-                                }
-                            } else if i > 0 {
-                                log::error!(
-                                    "download url:{}  status error:{} retry:{i}",
-                                    self.inner_status.url,
-                                    response.status()
-                                );
-                            } else {
-                                return Err(DownloadError::HttpStatusError(
-                                    response.status().to_string(),
-                                ));
-                            }
-                        }
-                        Ok(Err(err)) => {
-                            if i > 0 {
-                                log::error!(
-                                    "download url:{} error:{err} retry:{i}",
-                                    self.inner_status.url
-                                );
-                            } else {
-                                return Err(DownloadError::ReqwestError { source: err });
-                            }
-                        }
-                        Err(_) => {
-                            log::warn!("get url:{} response time out", self.inner_status.url);
-                        }
-                    }
-                }
+                sleep(Duration::from_secs(1)).await;
+                continue;
             }
-        }
-        Ok(())
-    }
 
-    #[inline]
-    pub async fn run_once(&mut self, response: Response) -> Result<()> {
-        if !self.read_stream(response).await? {
-            self.run().await
-        } else {
-            Ok(())
-        }
-    }
+            let req = self
+                .client
+                .get(self.inner_status.url.as_str())
+                .header(
+                    reqwest::header::RANGE,
+                    format!("bytes={}-{}", self.current, self.end),
+                )
+                .send();
 
-    /// Streaming download for unknown file size - writes sequentially without range requests
-    #[inline]
-    pub async fn run_streaming(&mut self, response: Response) -> Result<()> {
-        if !self.read_stream_append(response).await? {
-            // If stream was interrupted, retry with a new request (no range)
-            for i in (0..10).rev() {
-                let request_data = self
-                    .client
-                    .get(self.inner_status.url.as_str())
-                    .header(reqwest::header::RANGE, format!("bytes={}-", self.current))
-                    .send();
-
-                match timeout(Duration::from_secs(30), request_data).await {
-                    Ok(Ok(response)) => {
-                        if response.status() == StatusCode::OK
-                            || response.status() == StatusCode::PARTIAL_CONTENT
-                        {
-                            if self.read_stream_append(response).await? {
-                                return Ok(());
-                            }
-                        } else if response.status() == StatusCode::RANGE_NOT_SATISFIABLE {
-                            // Server doesn't support range, we need to re-download from scratch
-                            // but if we already have data, just return what we have
-                            log::warn!("Server doesn't support range requests for resume, finishing with current data");
-                            return Ok(());
-                        } else if i > 0 {
-                            log::error!(
-                                "streaming download url:{} status error:{} retry:{i}",
-                                self.inner_status.url,
-                                response.status()
-                            );
-                        } else {
-                            return Err(DownloadError::HttpStatusError(
-                                response.status().to_string(),
-                            ));
-                        }
-                    }
-                    Ok(Err(err)) => {
-                        if i > 0 {
-                            log::error!(
-                                "streaming download url:{} error:{err} retry:{i}",
-                                self.inner_status.url
-                            );
-                        } else {
-                            return Err(DownloadError::ReqwestError { source: err });
-                        }
-                    }
-                    Err(_) => {
-                        log::warn!(
-                            "streaming download url:{} response time out",
-                            self.inner_status.url
-                        );
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    #[inline]
-    async fn read_stream(&mut self, response: Response) -> Result<bool> {
-        let mut stream = response.bytes_stream();
-        let is_finish = loop {
-            match timeout(Duration::from_secs(10), stream.next()).await {
-                Ok(Some(Ok(buf))) => {
-                    self.save_file
-                        .write_all_by_offset(&buf, self.current)
-                        .await?;
-                    let len = buf.len() as u64;
-                    self.current += len;
-                    self.inner_status.add_down_size(len);
-                    if !self.inner_status.is_start() {
-                        log::debug!("is suspend");
-                        break false;
-                    }
-                }
-                Ok(Some(Err(err))) => {
-                    log::error!(
-                        "download url:{} buff is error:{}",
-                        self.inner_status.url,
-                        err
-                    );
-                    break false;
-                }
-                Ok(None) => {
+            match timeout(Duration::from_secs(15), req).await {
+                Ok(Ok(response))
+                    if response.status() == StatusCode::OK
+                        || response.status() == StatusCode::PARTIAL_CONTENT =>
+                {
                     log::trace!(
-                        "download url:{} block:{}-{} response close",
-                        self.inner_status.url,
-                        self.start,
-                        self.end
+                        "range {}-{} started (attempt {})",
+                        self.current,
+                        self.end,
+                        attempt
                     );
-                    break true;
+                    if self.read_stream_inner(response, false).await? {
+                        return Ok(()); // block complete
+                    }
+                    // Stream interrupted — retry with backoff.
+                    attempt += 1;
+                    sleep(retry_delay(attempt)).await;
+                }
+                Ok(Ok(response)) => {
+                    let status = response.status();
+                    attempt += 1;
+                    if attempt >= 10 {
+                        return Err(DownloadError::HttpStatusError(status.to_string()));
+                    }
+                    log::error!("range download status:{} retry:{}", status, attempt);
+                    sleep(retry_delay(attempt)).await;
+                }
+                Ok(Err(err)) => {
+                    attempt += 1;
+                    if attempt >= 10 {
+                        return Err(DownloadError::ReqwestError { source: err });
+                    }
+                    log::error!("range download error:{} retry:{}", err, attempt);
+                    sleep(retry_delay(attempt)).await;
                 }
                 Err(_) => {
-                    log::warn!("download url:{} time out", self.inner_status.url);
-                    break false;
+                    attempt += 1;
+                    log::warn!(
+                        "range download timeout (attempt {}), url:{}",
+                        attempt,
+                        self.inner_status.url
+                    );
+                    sleep(retry_delay(attempt)).await;
                 }
             }
-        };
-        Ok(is_finish)
+        }
+        Ok(())
     }
 
-    /// Read stream and append to file (for streaming/unknown size mode)
+    /// Run using an already-open response for the first attempt, then fall back to `run`.
     #[inline]
-    async fn read_stream_append(&mut self, response: Response) -> Result<bool> {
+    pub async fn run_once(mut self, response: Response) -> Result<()> {
+        if self.read_stream_inner(response, false).await? {
+            Ok(())
+        } else {
+            self.run().await
+        }
+    }
+
+    // ── Streaming download ────────────────────────────────────────────────────
+
+    /// Streaming download for unknown file sizes — sequential append, no range headers.
+    #[inline]
+    pub async fn run_streaming(mut self, response: Response) -> Result<()> {
+        if self.read_stream_inner(response, true).await? {
+            return Ok(());
+        }
+        // Stream interrupted — resume with range if possible.
+        let mut attempt: u32 = 0;
+        loop {
+            attempt += 1;
+            sleep(retry_delay(attempt)).await;
+
+            let req = self
+                .client
+                .get(self.inner_status.url.as_str())
+                .header(reqwest::header::RANGE, format!("bytes={}-", self.current))
+                .send();
+
+            match timeout(Duration::from_secs(30), req).await {
+                Ok(Ok(response)) => {
+                    let status = response.status();
+                    if status == StatusCode::OK || status == StatusCode::PARTIAL_CONTENT {
+                        if self.read_stream_inner(response, true).await? {
+                            return Ok(());
+                        }
+                    } else if status == StatusCode::RANGE_NOT_SATISFIABLE {
+                        // Server doesn't support resume; keep what we have.
+                        log::warn!(
+                            "server rejected range resume; keeping {} bytes",
+                            self.current
+                        );
+                        return Ok(());
+                    } else if attempt >= 10 {
+                        return Err(DownloadError::HttpStatusError(status.to_string()));
+                    } else {
+                        log::error!("streaming resume status:{} retry:{}", status, attempt);
+                    }
+                }
+                Ok(Err(err)) => {
+                    if attempt >= 10 {
+                        return Err(DownloadError::ReqwestError { source: err });
+                    }
+                    log::error!("streaming resume error:{} retry:{}", err, attempt);
+                }
+                Err(_) => {
+                    log::warn!(
+                        "streaming resume timeout (attempt {}), url:{}",
+                        attempt,
+                        self.inner_status.url
+                    );
+                    if attempt >= 10 {
+                        return Ok(()); // give up but don't hard-fail
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Internal stream reader ────────────────────────────────────────────────
+
+    /// Read a response body chunk-by-chunk.
+    ///
+    /// - `append = false`: write at `self.current` offset (range mode).
+    /// - `append = true`:  append sequentially (streaming mode).
+    ///
+    /// Returns `true` when the server closes the stream cleanly (block complete).
+    /// Returns `false` on timeout, network error, or suspend signal.
+    async fn read_stream_inner(&mut self, response: Response, append: bool) -> Result<bool> {
         let mut stream = response.bytes_stream();
-        let is_finish = loop {
+        let completed = loop {
             match timeout(Duration::from_secs(10), stream.next()).await {
                 Ok(Some(Ok(buf))) => {
-                    self.save_file.write_all(&buf).await?;
                     let len = buf.len() as u64;
+                    if append {
+                        self.save_file.write_all(&buf).await?;
+                    } else {
+                        self.save_file
+                            .write_all_by_offset(&buf, self.current)
+                            .await?;
+                    }
                     self.current += len;
                     self.inner_status.add_down_size(len);
-                    if !self.inner_status.is_start() {
-                        log::debug!("is suspend");
+                    if !self.inner_status.is_start.load(Ordering::Acquire) {
+                        log::debug!("download suspended at offset {}", self.current);
                         break false;
                     }
                 }
                 Ok(Some(Err(err))) => {
-                    log::error!(
-                        "streaming download url:{} buff is error:{}",
-                        self.inner_status.url,
-                        err
-                    );
+                    log::error!("chunk error url:{} err:{}", self.inner_status.url, err);
                     break false;
                 }
                 Ok(None) => {
                     log::trace!(
-                        "streaming download url:{} response close, downloaded {} bytes",
+                        "stream closed url:{} offset:{}-{}",
                         self.inner_status.url,
+                        self.start,
                         self.current
                     );
                     break true;
                 }
                 Err(_) => {
-                    log::warn!("streaming download url:{} time out", self.inner_status.url);
+                    log::warn!(
+                        "chunk read timeout url:{} offset:{}",
+                        self.inner_status.url,
+                        self.current
+                    );
                     break false;
                 }
             }
         };
-        Ok(is_finish)
+        Ok(completed)
     }
 }

@@ -57,12 +57,13 @@ fn spawn_download(
     task: u64,
     block: u64,
     file_name: Option<String>,
+    cookies: Option<String>,
 ) -> u64 {
     let item = Arc::new(DownloadItem::default());
     let item_ptr = item.clone();
     let key = handler.items.insert(item);
     handler._runtime.spawn(async move {
-        match DownloadFile::start_download(url, save_path, task, block, file_name).await {
+        match DownloadFile::start_download(url, save_path, task, block, file_name, cookies).await {
             Ok(download) => {
                 let _ = item_ptr.down_core.set(download);
             }
@@ -132,7 +133,7 @@ pub unsafe extern "C" fn durl_start(
     };
     let save_path = PathBuf::from(path);
 
-    spawn_download(handler, url, save_path, task, block, None)
+    spawn_download(handler, url, save_path, task, block, None, None)
 }
 
 /// # Safety
@@ -162,7 +163,62 @@ pub unsafe extern "C" fn durl_start_file_name(
     };
     let save_path = PathBuf::from(path);
 
-    spawn_download(handler, url, save_path, task, block, Some(file_name))
+    spawn_download(handler, url, save_path, task, block, Some(file_name), None)
+}
+
+/// # Safety
+/// Same as `durl_start` but with JSON cookies string.
+/// cookies: JSON object `{"name":"value"}` or array `[{"name":"n","value":"v"}]`, or NULL to skip.
+#[no_mangle]
+pub unsafe extern "C" fn durl_start_cookies(
+    handler: &mut DownloadHandler,
+    url: *const c_char,
+    path: *const c_char,
+    task: u64,
+    block: u64,
+    cookies: *const c_char,
+) -> u64 {
+    let url = match from_cstr(url) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
+    let path = match from_cstr(path) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
+    let cookies = from_cstr(cookies);
+    let save_path = PathBuf::from(path);
+    spawn_download(handler, url, save_path, task, block, None, cookies)
+}
+
+/// # Safety
+/// Same as `durl_start_file_name` but with JSON cookies string.
+/// cookies: JSON object `{"name":"value"}` or array `[{"name":"n","value":"v"}]`, or NULL to skip.
+#[no_mangle]
+pub unsafe extern "C" fn durl_start_file_name_cookies(
+    handler: &mut DownloadHandler,
+    url: *const c_char,
+    path: *const c_char,
+    file_name: *const c_char,
+    task: u64,
+    block: u64,
+    cookies: *const c_char,
+) -> u64 {
+    let url = match from_cstr(url) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
+    let path = match from_cstr(path) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
+    let file_name = match from_cstr(file_name) {
+        Some(v) => v,
+        None => return u64::MAX,
+    };
+    let cookies = from_cstr(cookies);
+    let save_path = PathBuf::from(path);
+    spawn_download(handler, url, save_path, task, block, Some(file_name), cookies)
 }
 
 /// get download is start

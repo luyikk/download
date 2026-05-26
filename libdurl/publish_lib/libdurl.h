@@ -37,6 +37,27 @@ uint64_t durl_start_file_name(DownloadHandler *handler,
                               uint64_t task,
                               uint64_t block);
 
+/// # Safety
+/// Same as durl_start but with JSON cookies.
+/// cookies: JSON object {"name":"value"} or array [{"name":"n","value":"v"}], or NULL to skip.
+uint64_t durl_start_cookies(DownloadHandler *handler,
+                            const char *url,
+                            const char *path,
+                            uint64_t task,
+                            uint64_t block,
+                            const char *cookies);
+
+/// # Safety
+/// Same as durl_start_file_name but with JSON cookies.
+/// cookies: JSON object {"name":"value"} or array [{"name":"n","value":"v"}], or NULL to skip.
+uint64_t durl_start_file_name_cookies(DownloadHandler *handler,
+                                      const char *url,
+                                      const char *path,
+                                      const char *file_name,
+                                      uint64_t task,
+                                      uint64_t block,
+                                      const char *cookies);
+
 /// get download is start
 bool durl_is_downloading(DownloadHandler *handler, uint64_t key);
 
