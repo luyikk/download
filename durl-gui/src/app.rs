@@ -774,6 +774,7 @@ impl DurlApp {
                 }
 
                 resp.context_menu(|ui| {
+                    ui.set_min_width(200.0);
                     if ui.button(&ctx_copy_url).clicked() {
                         ui.output_mut(|o| o.copied_text = url.clone());
                         ui.close_menu();
