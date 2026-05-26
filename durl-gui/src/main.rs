@@ -32,7 +32,8 @@ fn main() {
 
     let options = eframe::NativeOptions {
         viewport,
-        hardware_acceleration: eframe::HardwareAcceleration::Preferred,
+        renderer: eframe::Renderer::Wgpu,
+        wgpu_options: build_wgpu_config(),
         ..Default::default()
     };
 
@@ -94,3 +95,71 @@ fn load_window_icon() -> Option<egui::IconData> {
         height: image.height(),
     })
 }
+
+/// Build wgpu configuration with maximum compatibility.
+///
+/// Strategy:
+///   1. Try any **hardware** adapter across all backends
+///      (DX12, DX11, Vulkan, GL, Metal — whichever is available).
+///   2. If nothing found, request a **software** fallback adapter
+///      (WARP on Windows, llvmpipe on Linux).
+///   3. If even that fails, return the default config and let eframe
+///      handle it as usual.
+fn build_wgpu_config() -> eframe::egui_wgpu::WgpuConfiguration {
+    use eframe::egui_wgpu;
+    use eframe::wgpu;
+
+    // Instance with every backend enabled so we cover DX11 on Windows 10 VMs.
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::all(),
+        ..Default::default()
+    });
+
+    // 1. Hardware adapter (any backend, any power preference)
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::None,
+        compatible_surface: None,
+        force_fallback_adapter: false,
+    }));
+
+    // 2. Software / WARP fallback
+    let adapter = adapter.or_else(|| {
+        log::info!("No hardware GPU found, trying software renderer (WARP / llvmpipe)");
+        pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::None,
+            compatible_surface: None,
+            force_fallback_adapter: true,
+        }))
+    });
+
+    let Some(adapter) = adapter else {
+        log::warn!("No wgpu adapter found at all, falling back to default config");
+        return egui_wgpu::WgpuConfiguration::default();
+    };
+
+    let limits = wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
+
+    let Ok((device, queue)) = pollster::block_on(adapter.request_device(
+        &wgpu::DeviceDescriptor {
+            required_features: wgpu::Features::empty(),
+            required_limits: limits,
+            ..Default::default()
+        },
+        None,
+    )) else {
+        log::warn!("Failed to create wgpu device, falling back to default config");
+        return egui_wgpu::WgpuConfiguration::default();
+    };
+
+    use std::sync::Arc;
+    egui_wgpu::WgpuConfiguration {
+        wgpu_setup: egui_wgpu::WgpuSetup::Existing {
+            instance: Arc::new(instance),
+            adapter: Arc::new(adapter),
+            device: Arc::new(device),
+            queue: Arc::new(queue),
+        },
+        ..Default::default()
+    }
+}
+

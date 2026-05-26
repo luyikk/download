@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// User configuration persisted in `user.toml`.
 #[derive(Clone, Serialize, Deserialize)]
@@ -19,13 +18,16 @@ fn default_language() -> String {
 }
 
 fn default_save_path() -> String {
-    if let Some(home) = std::env::var_os("USERPROFILE") {
-        let p = PathBuf::from(home).join("Downloads");
-        if p.exists() {
-            return p.display().to_string();
-        }
+    // Try the system Downloads folder first (cross-platform via `dirs`)
+    if let Some(p) = dirs::download_dir() {
+        return p.display().to_string();
     }
-    "./".into()
+    // Fall back to home directory
+    if let Some(p) = dirs::home_dir() {
+        return p.display().to_string();
+    }
+    // Last resort
+    ".".into()
 }
 
 fn default_task_count() -> u64 {
