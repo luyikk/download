@@ -21,7 +21,7 @@ impl FileSave {
         let save_path = real_path.with_extension("dd");
         if save_path.exists() {
             std::fs::remove_file(save_path.as_path())?;
-            log::trace!("delete old file:{:?}", save_path);
+            log::debug!("delete old file:{:?}", save_path);
         }
         Ok(Actor::new(Self {
             save_path,
@@ -40,9 +40,9 @@ impl FileSave {
             .await?;
         if let Some(len) = self.len {
             file.set_len(len).await?;
-            log::trace!("create file:{:?} size:{}", self.save_path, len);
+            log::debug!("create file:{:?} size:{}", self.save_path, len);
         } else {
-            log::trace!("create file:{:?} size:unknown (streaming)", self.save_path);
+            log::debug!("create file:{:?} size:unknown (streaming)", self.save_path);
         }
         self.file = Some(file);
         Ok(())

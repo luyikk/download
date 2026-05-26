@@ -1,0 +1,81 @@
+# 中文语言包
+
+[meta]
+display_name = "中文"
+
+[sidebar]
+my_downloads = "📥 我的下载"
+all_tasks = "📋 全部任务"
+downloading = "⬇ 正在下载"
+completed = "✅ 已下载"
+
+[toolbar]
+new_download = "➕ 新建下载"
+pause = "⏸ 暂停"
+resume = "▶ 继续"
+delete = "🗑 删除"
+settings = "⚙ 设置"
+active_speed = "活跃: {active}  总速度: {speed}"
+
+[table]
+col_status = "状态"
+col_filename = "文件名"
+col_filesize = "文件大小"
+col_progress = "进度"
+col_speed = "速度"
+col_remaining = "剩余时间"
+col_elapsed = "已用时间"
+col_filetype = "文件类型"
+col_sha256 = "SHA256"
+empty_all = "暂无下载任务，点击 ➕ 新建下载 开始"
+empty_downloading = "没有正在下载的任务"
+empty_completed = "没有已完成的任务"
+
+[file_type]
+archive = "压缩包"
+installer = "安装程序"
+video = "视频"
+audio = "音频"
+image = "图片"
+pdf = "PDF 文档"
+document = "文档"
+disk_image = "磁盘镜像"
+text = "文本"
+unknown = "—"
+
+[context_menu]
+pause = "⏸ 暂停下载"
+resume = "▶ 继续下载"
+open_file = "📂 打开文件"
+open_dir = "📁 打开所在目录"
+copy_url = "📋 复制下载链接"
+copy_sha256 = "📋 复制SHA256"
+redownload = "🔄 重新下载"
+delete = "🗑 删除任务"
+
+[log_panel]
+title = "📋 日志"
+empty = "选择一个任务查看下载日志"
+
+[dialog_new]
+title = "新建下载"
+url = "下载链接:"
+save_dir = "保存目录:"
+filename = "文件名:"
+filename_hint = "留空自动识别"
+concurrency = "并发数:"
+cookie = "Cookie:"
+cancel = "取消"
+start = "开始下载"
+browse = "浏览"
+
+[dialog_settings]
+title = "设置"
+default_dir = "默认保存目录:"
+default_threads = "默认并发数:"
+language = "语言:"
+log_level = "日志级别:"
+lang_dir = "语言目录:"
+open_dir = "打开"
+lang_dir_hint = "💡 将自定义 .toml 语言文件放入语言目录即可添加新语言，可复制 en-US.toml 作为模板"
+ok = "确定"

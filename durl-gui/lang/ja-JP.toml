@@ -1,0 +1,81 @@
+# 日本語言語ファイル
+
+[meta]
+display_name = "日本語"
+
+[sidebar]
+my_downloads = "📥 ダウンロード"
+all_tasks = "📋 すべてのタスク"
+downloading = "⬇ ダウンロード中"
+completed = "✅ ダウンロード完了"
+
+[toolbar]
+new_download = "➕ 新しいダウンロード"
+pause = "⏸ 一時停止"
+resume = "▶ 再開"
+delete = "🗑 削除"
+settings = "⚙ 設定"
+active_speed = "アクティブ: {active}  合計速度: {speed}"
+
+[table]
+col_status = "状態"
+col_filename = "ファイル名"
+col_filesize = "ファイルサイズ"
+col_progress = "進行状況"
+col_speed = "速度"
+col_remaining = "残り時間"
+col_elapsed = "経過時間"
+col_filetype = "ファイル種類"
+col_sha256 = "SHA256"
+empty_all = "ダウンロードタスクはありません。➕ をクリックして新しいダウンロードを開始してください"
+empty_downloading = "ダウンロード中のタスクはありません"
+empty_completed = "完了したタスクはありません"
+
+[file_type]
+archive = "アーカイブ"
+installer = "インストーラー"
+video = "動画"
+audio = "音声"
+image = "画像"
+pdf = "PDF ドキュメント"
+document = "ドキュメント"
+disk_image = "ディスクイメージ"
+text = "テキスト"
+unknown = "—"
+
+[context_menu]
+pause = "⏸ ダウンロードを一時停止"
+resume = "▶ ダウンロードを再開"
+open_file = "📂 ファイルを開く"
+open_dir = "📁 ディレクトリを開く"
+copy_url = "📋 ダウンロードリンクをコピー"
+copy_sha256 = "📋 SHA256 をコピー"
+redownload = "🔄 再ダウンロード"
+delete = "🗑 タスクを削除"
+
+[log_panel]
+title = "📋 ログ"
+empty = "ログを表示するタスクを選択してください"
+
+[dialog_new]
+title = "新しいダウンロード"
+url = "ダウンロードリンク:"
+save_dir = "保存先ディレクトリ:"
+filename = "ファイル名:"
+filename_hint = "空欄にすると自動で検出"
+concurrency = "同時数:"
+cookie = "Cookie:"
+cancel = "キャンセル"
+start = "ダウンロード開始"
+browse = "参照"
+
+[dialog_settings]
+title = "設定"
+default_dir = "デフォルト保存先:"
+default_threads = "デフォルト同時数:"
+language = "言語:"
+log_level = "ログレベル:"
+lang_dir = "言語ディレクトリ:"
+open_dir = "開く"
+lang_dir_hint = "💡 カスタムの .toml 言語ファイルを言語ディレクトリに置くと新しい言語を追加できます。テンプレートとして en-US.toml をコピーしてください"
+ok = "保存"

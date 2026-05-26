@@ -128,7 +128,7 @@ impl DownloadFile {
             inner_status: Arc::new(DownloadInner::new_known(url, size)),
         };
         file.save_file.init().await?;
-        log::trace!("url:{} init ok size:{}", file.inner_status.url, size);
+        log::debug!("url:{} init ok size:{}", file.inner_status.url, size);
 
         // Empty file — nothing to download.
         if size == 0 {
@@ -148,7 +148,7 @@ impl DownloadFile {
             let block_size = size / connect_count;
             let end_add_size = size % connect_count;
             debug_assert_eq!(block_size * connect_count + end_add_size, size);
-            log::trace!(
+            log::debug!(
                 "multi-task count:{} block:{} tail:{}",
                 connect_count,
                 block_size,
@@ -169,7 +169,7 @@ impl DownloadFile {
                     let start = i * block_size;
                     let end = start + chunk_size - 1;
 
-                    log::trace!("task:{} range:{}-{}", i, start, end);
+                    log::debug!("task:{} range:{}-{}", i, start, end);
                     join_vec.push(tokio::spawn(
                         ReqwestFile::new(
                             save_file.clone(),
@@ -209,7 +209,7 @@ impl DownloadFile {
             // Single-task: reuse the already-open response.
             tokio::spawn(async move {
                 spawn_speed_ticker(inner_status.clone());
-                log::trace!("single-task url:{} size:{}", inner_status.url, size);
+                log::debug!("single-task url:{} size:{}", inner_status.url, size);
 
                 if let Err(err) =
                     ReqwestFile::new(save_file.clone(), inner_status.clone(), client, 0, size - 1)
@@ -241,7 +241,7 @@ impl DownloadFile {
         client: reqwest::Client,
         response: Response,
     ) -> Result<Self> {
-        log::trace!("size unknown, streaming mode: {}", url);
+        log::debug!("size unknown, streaming mode: {}", url);
         let file = Self {
             task_count: 1,
             save_file: Arc::new(FileSave::create(save_path, None)?),
@@ -255,7 +255,7 @@ impl DownloadFile {
 
         tokio::spawn(async move {
             spawn_speed_ticker(inner_status.clone());
-            log::trace!("streaming url:{}", inner_status.url);
+            log::debug!("streaming url:{}", inner_status.url);
 
             if let Err(err) =
                 ReqwestFile::new_streaming(save_file.clone(), inner_status.clone(), client)
@@ -322,7 +322,7 @@ impl DownloadFile {
             .or_else(|| Self::parse_content_filename_from_query(response.url()))
             .or_else(|| Self::parse_content_filename_from_url(response.url()));
 
-        log::trace!("url:{} size:{:?} filename:{:?}", url, size, final_filename);
+        log::debug!("url:{} size:{:?} filename:{:?}", url, size, final_filename);
         Ok((size, final_filename, response))
     }
 

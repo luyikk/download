@@ -1,0 +1,81 @@
+# English Language Pack
+
+[meta]
+display_name = "English"
+
+[sidebar]
+my_downloads = "📥 Downloads"
+all_tasks = "📋 All Tasks"
+downloading = "⬇ Downloading"
+completed = "✅ Completed"
+
+[toolbar]
+new_download = "➕ New"
+pause = "⏸ Pause"
+resume = "▶ Resume"
+delete = "🗑 Delete"
+settings = "⚙ Settings"
+active_speed = "Active: {active}  Speed: {speed}"
+
+[table]
+col_status = "Status"
+col_filename = "Filename"
+col_filesize = "Size"
+col_progress = "Progress"
+col_speed = "Speed"
+col_remaining = "Remaining"
+col_elapsed = "Elapsed"
+col_filetype = "Type"
+col_sha256 = "SHA256"
+empty_all = "No tasks. Click ➕ New to start a download."
+empty_downloading = "No active downloads"
+empty_completed = "No completed downloads"
+
+[file_type]
+archive = "Archive"
+installer = "Installer"
+video = "Video"
+audio = "Audio"
+image = "Image"
+pdf = "PDF"
+document = "Document"
+disk_image = "Disk Image"
+text = "Text"
+unknown = "—"
+
+[context_menu]
+pause = "⏸ Pause"
+resume = "▶ Resume"
+open_file = "📂 Open File"
+open_dir = "📁 Open Folder"
+copy_url = "📋 Copy URL"
+copy_sha256 = "📋 Copy SHA256"
+redownload = "🔄 Re-download"
+delete = "🗑 Delete Task"
+
+[log_panel]
+title = "📋 Logs"
+empty = "Select a task to view logs"
+
+[dialog_new]
+title = "New Download"
+url = "URL:"
+save_dir = "Save to:"
+filename = "Filename:"
+filename_hint = "Leave empty for auto-detect"
+concurrency = "Threads:"
+cookie = "Cookie:"
+cancel = "Cancel"
+start = "Start"
+browse = "Browse"
+
+[dialog_settings]
+title = "Settings"
+default_dir = "Default save dir:"
+default_threads = "Default threads:"
+language = "Language:"
+log_level = "Log level:"
+lang_dir = "Lang dir:"
+open_dir = "Open"
+lang_dir_hint = "💡 Place custom .toml language files in the lang directory to add new languages. Copy en-US.toml as a template."
+ok = "OK"

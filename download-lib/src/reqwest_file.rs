@@ -230,7 +230,7 @@ impl ReqwestFile {
                     break false;
                 }
                 Ok(None) => {
-                    log::trace!(
+                    log::debug!(
                         "stream closed url:{} offset:{}-{}",
                         self.inner_status.url,
                         self.start,
