@@ -6,7 +6,7 @@ mod gui_logger;
 mod i18n;
 pub mod paths;
 
-use app::DurlApp;
+use app::DUrlApp;
 use config::UserConfig;
 use eframe::egui;
 use std::sync::Arc;
@@ -41,7 +41,7 @@ fn main() {
         "DURL Download Manager",
         options,
         Box::new(move |cc| {
-            Ok(Box::new(DurlApp::new(
+            Ok(Box::new(DUrlApp::new(
                 cc,
                 log_buffer.clone(),
                 user_config.clone(),

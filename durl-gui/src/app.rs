@@ -110,7 +110,7 @@ enum Action {
 
 // ── App ──────────────────────────────────────────────────────────────────────
 
-pub struct DurlApp {
+pub struct DUrlApp {
     rt: tokio::runtime::Runtime,
     tasks: Vec<DownloadTask>,
     next_id: u64,
@@ -202,7 +202,7 @@ fn extract_filename(path: &str) -> String {
 
 // ── DurlApp implementation ──────────────────────────────────────────────────
 
-impl DurlApp {
+impl DUrlApp {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         log_buffer: LogBuffer,
@@ -1498,7 +1498,7 @@ impl DurlApp {
 
 // ── eframe::App ──────────────────────────────────────────────────────────────
 
-impl eframe::App for DurlApp {
+impl eframe::App for DUrlApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint_after(Duration::from_millis(200));
         self.update_tasks();
