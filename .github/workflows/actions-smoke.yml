@@ -1,0 +1,21 @@
+name: Actions Smoke Test
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show event context
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "ref=${{ github.ref }}"
+          echo "sha=${{ github.sha }}"
+          echo "repository=${{ github.repository }}"
+      - name: Basic shell smoke test
+        run: echo "GitHub Actions can start jobs for this repository."
+
