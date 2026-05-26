@@ -35,6 +35,7 @@ impl FileSave {
     async fn init(&mut self) -> Result<()> {
         let file = tokio::fs::OpenOptions::new()
             .create(true)
+            .truncate(true)
             .write(true)
             .open(self.save_path.as_path())
             .await?;

@@ -282,8 +282,8 @@ impl DownloadFile {
 
     /// Resolve filename from URL path, falling back to a timestamped name.
     fn extract_filename_from_url(url: &Url) -> String {
-        if let Some(segments) = url.path_segments() {
-            if let Some(last) = segments.rev().next() {
+        if let Some(mut segments) = url.path_segments() {
+            if let Some(last) = segments.next_back() {
                 let decoded = urlencoding_decode(last);
                 if !decoded.is_empty() && decoded != "/" && decoded.contains('.') {
                     return decoded;
@@ -348,7 +348,7 @@ impl DownloadFile {
         for part in disposition.trim().split(';') {
             let part = part.trim();
             if part.starts_with("filename*=") {
-                let value = part.splitn(2, '=').nth(1)?;
+                let value = part.split_once('=')?.1;
                 let value = if let Some(pos) = value.rfind("''") {
                     &value[pos + 2..]
                 } else {
@@ -356,7 +356,7 @@ impl DownloadFile {
                 };
                 return Some(sanitize_filename(&form_decode(value.trim_matches('"'))));
             } else if part.starts_with("filename=") && plain.is_none() {
-                let value = part.splitn(2, '=').nth(1)?;
+                let value = part.split_once('=')?.1;
                 let value = value.trim_matches('"').trim_matches('\'');
                 plain = Some(sanitize_filename(&form_decode(value)));
             }
@@ -366,7 +366,7 @@ impl DownloadFile {
 
     #[inline]
     fn parse_content_filename_from_url(url: &Url) -> Option<String> {
-        let last = url.path_segments()?.rev().next()?;
+        let last = url.path_segments()?.next_back()?;
         let decoded = urlencoding_decode(last);
         if !decoded.is_empty() && decoded != "/" && decoded.contains('.') {
             Some(sanitize_filename(&decoded))

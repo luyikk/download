@@ -17,10 +17,8 @@ macro_rules! cstr {
     };
 }
 
-
-
 #[derive(Default)]
-pub struct DownloadItem{
+pub struct DownloadItem {
     down_core: OnceCell<DownloadFile>,
     error: OnceCell<DownloadError>,
 }
@@ -75,10 +73,8 @@ fn spawn_download(
     key as u64
 }
 
-
-
 #[no_mangle]
-pub extern "C" fn durl_create(thread_count:u32) -> *mut DownloadHandler {
+pub extern "C" fn durl_create(thread_count: u32) -> *mut DownloadHandler {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(thread_count as usize)
         .enable_all()
@@ -104,12 +100,11 @@ pub unsafe extern "C" fn durl_release(handler: *mut DownloadHandler) {
 
 /// clean key money
 #[no_mangle]
-pub extern "C" fn durl_clean(handler: &mut DownloadHandler,key:u64){
+pub extern "C" fn durl_clean(handler: &mut DownloadHandler, key: u64) {
     if handler.items.contains(key as usize) {
         handler.items.remove(key as usize);
     }
 }
-
 
 /// # Safety
 /// start now download url file to path,task is concurrent quantity
@@ -122,7 +117,7 @@ pub unsafe extern "C" fn durl_start(
     path: *const c_char,
     task: u64,
     block: u64,
-)->u64 {
+) -> u64 {
     let url = match from_cstr(url) {
         Some(v) => v,
         None => return u64::MAX,
@@ -148,7 +143,7 @@ pub unsafe extern "C" fn durl_start_file_name(
     file_name: *const c_char,
     task: u64,
     block: u64,
-)->u64 {
+) -> u64 {
     let url = match from_cstr(url) {
         Some(v) => v,
         None => return u64::MAX,
@@ -218,13 +213,21 @@ pub unsafe extern "C" fn durl_start_file_name_cookies(
     };
     let cookies = from_cstr(cookies);
     let save_path = PathBuf::from(path);
-    spawn_download(handler, url, save_path, task, block, Some(file_name), cookies)
+    spawn_download(
+        handler,
+        url,
+        save_path,
+        task,
+        block,
+        Some(file_name),
+        cookies,
+    )
 }
 
 /// get download is start
 #[no_mangle]
-pub extern "C" fn durl_is_downloading( handler: &mut DownloadHandler,key:u64) -> bool {
-    if let Some(item)=handler.items.get(key as usize){
+pub extern "C" fn durl_is_downloading(handler: &mut DownloadHandler, key: u64) -> bool {
+    if let Some(item) = handler.items.get(key as usize) {
         if let Some(download) = item.down_core.get() {
             if download.is_error() || item.error.initialized() {
                 true
@@ -234,20 +237,20 @@ pub extern "C" fn durl_is_downloading( handler: &mut DownloadHandler,key:u64) ->
         } else {
             item.error.initialized()
         }
-    }else{
+    } else {
         false
     }
 }
 
 #[no_mangle]
-pub extern "C" fn durl_is_downloading_finish(handler: &DownloadHandler,key:u64) -> bool {
-    if let Some(item)=handler.items.get(key as usize) {
+pub extern "C" fn durl_is_downloading_finish(handler: &DownloadHandler, key: u64) -> bool {
+    if let Some(item) = handler.items.get(key as usize) {
         if let Some(download) = item.down_core.get() {
             download.is_finish()
         } else {
             false
         }
-    }else{
+    } else {
         false
     }
 }
@@ -273,7 +276,11 @@ pub extern "C" fn durl_restart(handler: &DownloadHandler, key: u64) {
 /// # Safety
 /// get temp download save path (ends with .dd), returns copied c-string length
 #[no_mangle]
-pub unsafe extern "C" fn durl_get_save_file_path(handler: &DownloadHandler, key: u64, msg: *mut c_char) -> u32 {
+pub unsafe extern "C" fn durl_get_save_file_path(
+    handler: &DownloadHandler,
+    key: u64,
+    msg: *mut c_char,
+) -> u32 {
     if let Some(item) = handler.items.get(key as usize) {
         if let Some(download) = item.down_core.get() {
             return copy_cstr(msg, &download.get_save_file_path());
@@ -285,7 +292,11 @@ pub unsafe extern "C" fn durl_get_save_file_path(handler: &DownloadHandler, key:
 /// # Safety
 /// get final file path, returns copied c-string length
 #[no_mangle]
-pub unsafe extern "C" fn durl_get_real_file_path(handler: &DownloadHandler, key: u64, msg: *mut c_char) -> u32 {
+pub unsafe extern "C" fn durl_get_real_file_path(
+    handler: &DownloadHandler,
+    key: u64,
+    msg: *mut c_char,
+) -> u32 {
     if let Some(item) = handler.items.get(key as usize) {
         if let Some(download) = item.down_core.get() {
             return copy_cstr(msg, &download.get_real_file_path());
@@ -299,12 +310,12 @@ pub unsafe extern "C" fn durl_get_real_file_path(handler: &DownloadHandler, key:
 #[no_mangle]
 pub extern "C" fn durl_get_state(
     handler: &DownloadHandler,
-    key:u64,
+    key: u64,
     size: &mut u64,
     down_size: &mut u64,
     err_code: &mut i32,
 ) -> u32 {
-    if let Some(item)=handler.items.get(key as usize) {
+    if let Some(item) = handler.items.get(key as usize) {
         if let Some(err) = item.error.get() {
             let len = cstr!(err).len();
             *err_code = err.into();
@@ -326,7 +337,7 @@ pub extern "C" fn durl_get_state(
             *err_code = 0;
             0
         }
-    }else{
+    } else {
         *size = 0;
         *down_size = 0;
         *err_code = 0;
@@ -337,8 +348,8 @@ pub extern "C" fn durl_get_state(
 /// # Safety
 /// get error msg string
 #[no_mangle]
-pub unsafe extern "C" fn durl_get_error_str(handler: &DownloadHandler,key:u64, msg: *mut c_char) {
-    if let Some(item)=handler.items.get(key as usize) {
+pub unsafe extern "C" fn durl_get_error_str(handler: &DownloadHandler, key: u64, msg: *mut c_char) {
+    if let Some(item) = handler.items.get(key as usize) {
         if let Some(err) = item.error.get() {
             let err_msg = cstr!(err);
             let _ = copy_cstr(msg, &err_msg);

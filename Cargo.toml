@@ -1,28 +1,11 @@
-[package]
-name = "durl"
-version = "0.2.7"
-edition = "2021"
-license = "MIT/Apache-2.0"
-readme = "README.md"
-repository = "https://github.com/luyikk/download"
-documentation = "https://docs.rs/download-file"
-description = "multi fiber download http file."
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-download-lib = { path = "download-lib", version = "0.2.7" }
-tokio = { version = "1", features = ["full"] }
-anyhow = "1"
-log = "0.4"
-env_logger = "0.11"
-structopt = "0.3"
-indicatif = { version = "0.18", features = ["tokio"] }
-humansize = "2"
-
-
+[workspace]
+members = [
+    "download-lib","libdurl","durl","durl-gui"
+]
+resolver = "2"
 
 [profile.release]
 codegen-units = 1
 lto = "fat"
 panic = "abort"
+

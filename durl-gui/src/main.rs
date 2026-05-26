@@ -41,7 +41,11 @@ fn main() {
         "DURL Download Manager",
         options,
         Box::new(move |cc| {
-            Ok(Box::new(DurlApp::new(cc, log_buffer.clone(), user_config.clone())))
+            Ok(Box::new(DurlApp::new(
+                cc,
+                log_buffer.clone(),
+                user_config.clone(),
+            )))
         }),
     ) {
         show_error(&format!("Failed to start: {e}"));
@@ -162,4 +166,3 @@ fn build_wgpu_config() -> eframe::egui_wgpu::WgpuConfiguration {
         ..Default::default()
     }
 }
-

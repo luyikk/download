@@ -24,7 +24,3 @@ pollster = "0.4"
 winres = "0.1"
 ico = "0.3"
 
-[profile.release]
-codegen-units = 1
-lto = "fat"
-panic = "abort"

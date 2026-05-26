@@ -86,4 +86,3 @@ impl UserConfig {
 
 /// All valid log level names for the settings UI.
 pub const LOG_LEVELS: &[&str] = &["Error", "Warn", "Info", "Debug", "Trace"];
-

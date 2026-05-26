@@ -14,7 +14,3 @@ download-lib = { path = "../download-lib", version = "0.2.5" }
 tokio = { version = "1", features = ["full"] }
 slab = "0.4"
 
-[profile.release]
-codegen-units = 1
-lto = "fat"
-panic = "abort"

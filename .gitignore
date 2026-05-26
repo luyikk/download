@@ -1,6 +1,6 @@
 /target
 /.idea/
-/Cargo.lock
+Cargo.lock
 /download-lib/Cargo.lock
 /download-ffi/target/
 /download-ffi/Cargo.lock
