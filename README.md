@@ -97,6 +97,8 @@ durl -u "https://xafj-cm11.baidupcs.com/file/xxx?fin=PS4+slim%E6%89%8B%E6%9F%84.
 A desktop GUI download manager built with [eframe](https://github.com/emilk/egui/tree/master/crates/eframe).
 基于 [eframe](https://github.com/emilk/egui/tree/master/crates/eframe) 构建的桌面 GUI 下载管理器。
 
+![durl-gui screenshot](./durl-gui/assets/gui.png)
+
 **Features / 功能：**
 - Task list with status, progress bar, speed, ETA, elapsed time, file type, SHA256
   任务列表：状态、进度条、速度、剩余时间、已用时间、文件类型、SHA256
