@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 mod app;
+pub mod browser_server;
 mod config;
 mod gui_logger;
 mod i18n;

@@ -27,3 +27,10 @@ pub fn lang_dir() -> PathBuf {
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
+
+/// Directory where the browser extension files are extracted to.
+pub fn extension_dir() -> PathBuf {
+    let dir = app_config_dir().join("extension");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}

@@ -55,10 +55,12 @@ pub fn init_gui_logger(level: log::LevelFilter) -> LogBuffer {
         .name("gui-logger".into())
         .spawn(move || {
             while let Ok(entry) = rx.recv() {
-                // Filter: download_lib uses configured level, others only Error
-                let is_download_lib = entry.target.starts_with("download_lib");
+                // Filter: download_lib and durl_gui (includes browser_server) use
+                // the configured level; everything else is capped at Error.
+                let is_local = entry.target.starts_with("download_lib")
+                    || entry.target.starts_with("durl_gui");
                 let current = LOG_LEVEL.load(Ordering::Relaxed);
-                let allowed = if is_download_lib {
+                let allowed = if is_local {
                     (entry.level as usize) <= current
                 } else {
                     entry.level <= Level::Error

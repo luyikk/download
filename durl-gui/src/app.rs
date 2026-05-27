@@ -1,3 +1,4 @@
+use crate::browser_server::{start_browser_server, BrowserDownloadReq};
 use crate::config::{UserConfig, LOG_LEVELS};
 use crate::gui_logger::LogBuffer;
 use crate::i18n::{available_languages, LangStrings};
@@ -142,6 +143,13 @@ pub struct DUrlApp {
 
     // Persistence
     dirty: bool,
+
+    // Browser extension channel
+    browser_rx: Option<mpsc::Receiver<BrowserDownloadReq>>,
+
+    // Browser extension install guide
+    show_ext_install_guide: bool,
+    ext_install_path: String,
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -220,6 +228,10 @@ impl DUrlApp {
         let (tasks, next_id) = Self::load_tasks();
         let lang = LangStrings::load(&user_config.language);
 
+        // Start browser-extension HTTP server
+        let (browser_tx, browser_rx) = mpsc::channel::<BrowserDownloadReq>();
+        start_browser_server(browser_tx);
+
         Self {
             rt,
             tasks,
@@ -238,6 +250,9 @@ impl DUrlApp {
             log_buffer,
             logs: Vec::new(),
             dirty: false,
+            browser_rx: Some(browser_rx),
+            show_ext_install_guide: false,
+            ext_install_path: String::new(),
         }
     }
 
@@ -1262,7 +1277,6 @@ impl DUrlApp {
         let lbl_fname = self.lang.get("dialog_new.filename").to_string();
         let lbl_fname_hint = self.lang.get("dialog_new.filename_hint").to_string();
         let lbl_conc = self.lang.get("dialog_new.concurrency").to_string();
-        let lbl_cookie = self.lang.get("dialog_new.cookie").to_string();
         let lbl_cancel = self.lang.get("dialog_new.cancel").to_string();
         let lbl_start = self.lang.get("dialog_new.start").to_string();
         let lbl_browse = self.lang.get("dialog_new.browse").to_string();
@@ -1323,16 +1337,6 @@ impl DUrlApp {
                         egui::TextEdit::singleline(&mut self.new_task_count).desired_width(80.0),
                     );
                 });
-                ui.add_space(4.0);
-
-                ui.horizontal(|ui| {
-                    ui.label(&lbl_cookie);
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.new_cookies)
-                            .desired_width(ui.available_width())
-                            .hint_text(r#"optional, e.g. {"session":"abc"}"#),
-                    );
-                });
 
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
@@ -1355,6 +1359,7 @@ impl DUrlApp {
                 });
                 ui.add_space(4.0);
             });
+
         if !open {
             self.show_new_dialog = false;
         }
@@ -1375,6 +1380,15 @@ impl DUrlApp {
         let lbl_open_dir = self.lang.get("dialog_settings.open_dir").to_string();
         let lbl_ok = self.lang.get("dialog_settings.ok").to_string();
         let lbl_browse = self.lang.get("dialog_new.browse").to_string();
+        let lbl_browser_ext = self.lang.get("dialog_settings.browser_ext").to_string();
+        let lbl_install_chrome = self
+            .lang
+            .get("dialog_settings.browser_ext_install_chrome")
+            .to_string();
+        let lbl_install_edge = self
+            .lang
+            .get("dialog_settings.browser_ext_install_edge")
+            .to_string();
         let available_langs = available_languages();
 
         let mut open = true;
@@ -1382,8 +1396,8 @@ impl DUrlApp {
             .open(&mut open)
             .resizable(false)
             .collapsible(false)
-            .default_width(460.0)
-            .max_width(460.0)
+            .default_width(480.0)
+            .max_width(520.0)
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .show(ctx, |ui| {
                 egui::Grid::new("settings_grid")
@@ -1464,6 +1478,53 @@ impl DUrlApp {
                             }
                         });
                         ui.end_row();
+
+                        // ── Browser extension install row ────────────────────
+                        ui.label(&lbl_browser_ext);
+                        ui.horizontal(|ui| {
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new(&lbl_install_chrome).color(Color32::WHITE),
+                                    )
+                                    .fill(BLUE_PRIMARY),
+                                )
+                                .clicked()
+                            {
+                                match extract_extension_files() {
+                                    Ok(path) => {
+                                        self.ext_install_path = path.display().to_string();
+                                        self.show_ext_install_guide = true;
+                                        open_browser_extensions_page(BrowserTarget::Chrome);
+                                    }
+                                    Err(e) => {
+                                        log::error!("[ext] Failed to extract extension: {e}");
+                                    }
+                                }
+                            }
+                            ui.add_space(4.0);
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new(&lbl_install_edge).color(Color32::WHITE),
+                                    )
+                                    .fill(Color32::from_rgb(0, 120, 212)),
+                                )
+                                .clicked()
+                            {
+                                match extract_extension_files() {
+                                    Ok(path) => {
+                                        self.ext_install_path = path.display().to_string();
+                                        self.show_ext_install_guide = true;
+                                        open_browser_extensions_page(BrowserTarget::Edge);
+                                    }
+                                    Err(e) => {
+                                        log::error!("[ext] Failed to extract extension: {e}");
+                                    }
+                                }
+                            }
+                        });
+                        ui.end_row();
                     });
 
                 ui.add_space(2.0);
@@ -1494,6 +1555,86 @@ impl DUrlApp {
             self.show_settings = false;
         }
     }
+
+    fn render_ext_install_dialog(&mut self, ctx: &egui::Context) {
+        if !self.show_ext_install_guide {
+            return;
+        }
+
+        let title = self.lang.get("dialog_ext_install.title").to_string();
+        let lbl_path = self.lang.get("dialog_ext_install.path_label").to_string();
+        let lbl_copy = self.lang.get("dialog_ext_install.copy_path").to_string();
+        let step1 = self.lang.get("dialog_ext_install.step1").to_string();
+        let step2 = self.lang.get("dialog_ext_install.step2").to_string();
+        let step3 = self.lang.get("dialog_ext_install.step3").to_string();
+        let step4 = self.lang.get("dialog_ext_install.step4").to_string();
+        let lbl_chrome = self.lang.get("dialog_ext_install.open_chrome").to_string();
+        let lbl_edge = self.lang.get("dialog_ext_install.open_edge").to_string();
+        let lbl_close = self.lang.get("dialog_ext_install.close").to_string();
+        let ext_path = self.ext_install_path.clone();
+
+        let mut open = true;
+        egui::Window::new(&title)
+            .open(&mut open)
+            .resizable(false)
+            .collapsible(false)
+            .default_width(520.0)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.add_space(4.0);
+
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(&lbl_path).strong());
+                    let mut path_display = ext_path.clone();
+                    ui.add(
+                        egui::TextEdit::singleline(&mut path_display)
+                            .desired_width(ui.available_width() - 96.0)
+                            .interactive(false),
+                    );
+                    if ui.button(&lbl_copy).clicked() {
+                        ui.output_mut(|o| o.copied_text = ext_path.clone());
+                    }
+                });
+
+                ui.add_space(8.0);
+                for step in [&step1, &step2, &step3, &step4] {
+                    ui.label(RichText::new(step).size(12.5));
+                }
+                ui.add_space(10.0);
+
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(
+                            egui::Button::new(RichText::new(&lbl_chrome).color(Color32::WHITE))
+                                .fill(BLUE_PRIMARY),
+                        )
+                        .clicked()
+                    {
+                        open_browser_extensions_page(BrowserTarget::Chrome);
+                    }
+                    ui.add_space(8.0);
+                    if ui
+                        .add(
+                            egui::Button::new(RichText::new(&lbl_edge).color(Color32::WHITE))
+                                .fill(Color32::from_rgb(0, 120, 212)),
+                        )
+                        .clicked()
+                    {
+                        open_browser_extensions_page(BrowserTarget::Edge);
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button(&lbl_close).clicked() {
+                            self.show_ext_install_guide = false;
+                        }
+                    });
+                });
+                ui.add_space(4.0);
+            });
+
+        if !open {
+            self.show_ext_install_guide = false;
+        }
+    }
 }
 
 // ── eframe::App ──────────────────────────────────────────────────────────────
@@ -1504,6 +1645,27 @@ impl eframe::App for DUrlApp {
         self.update_tasks();
         self.drain_lib_logs();
         self.flush_if_dirty();
+
+        // Pull download requests coming from the browser extension.
+        // Only the first pending request is handled per frame to keep the UI responsive.
+        if let Some(rx) = &self.browser_rx {
+            if let Ok(req) = rx.try_recv() {
+                // Populate the new-download dialog fields and show it.
+                log::trace!(
+                    "Received new download request from browser: url={}, cookies={:?}",
+                    req.url,
+                    req.cookies
+                );
+                self.new_url = req.url;
+                self.new_cookies = req.cookies;
+                if let Some(fname) = req.filename {
+                    self.new_filename = fname;
+                }
+                self.show_new_dialog = true;
+                // Bring the window to front by requesting a repaint immediately.
+                ctx.request_repaint();
+            }
+        }
 
         if ctx.input(|i| i.viewport().close_requested()) {
             self.save_tasks();
@@ -1561,6 +1723,7 @@ impl eframe::App for DUrlApp {
 
         self.render_new_dialog(ctx);
         self.render_settings_dialog(ctx);
+        self.render_ext_install_dialog(ctx);
     }
 }
 
@@ -1575,4 +1738,75 @@ fn compute_sha256(path: &str) -> Result<String, std::io::Error> {
     let mut hasher = Sha256::new();
     std::io::copy(&mut file, &mut hasher)?;
     Ok(format!("{:x}", hasher.finalize()))
+}
+
+// ── Browser extension helpers ─────────────────────────────────────────────────
+
+enum BrowserTarget {
+    Chrome,
+    Edge,
+}
+
+/// Extract the bundled browser extension files to the app config directory.
+/// Returns the directory path on success.
+fn extract_extension_files() -> Result<std::path::PathBuf, std::io::Error> {
+    let dir = crate::paths::extension_dir();
+    let icons_dir = dir.join("icons");
+    std::fs::create_dir_all(&icons_dir)?;
+
+    std::fs::write(
+        dir.join("manifest.json"),
+        include_bytes!("../../extension/manifest.json"),
+    )?;
+    std::fs::write(
+        dir.join("background.js"),
+        include_bytes!("../../extension/background.js"),
+    )?;
+    std::fs::write(
+        icons_dir.join("icon16.png"),
+        include_bytes!("../../extension/icons/icon16.png"),
+    )?;
+    std::fs::write(
+        icons_dir.join("icon48.png"),
+        include_bytes!("../../extension/icons/icon48.png"),
+    )?;
+    std::fs::write(
+        icons_dir.join("icon128.png"),
+        include_bytes!("../../extension/icons/icon128.png"),
+    )?;
+
+    log::info!("[ext] Extension extracted to: {}", dir.display());
+    Ok(dir)
+}
+
+/// Open the browser's extensions management page.
+fn open_browser_extensions_page(target: BrowserTarget) {
+    #[cfg(windows)]
+    {
+        let (browser, url) = match target {
+            BrowserTarget::Chrome => ("chrome", "chrome://extensions"),
+            BrowserTarget::Edge => ("msedge", "edge://extensions"),
+        };
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", browser, url])
+            .spawn();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let (browser, url) = match target {
+            BrowserTarget::Chrome => ("Google Chrome", "chrome://extensions"),
+            BrowserTarget::Edge => ("Microsoft Edge", "edge://extensions"),
+        };
+        let _ = std::process::Command::new("open")
+            .args(["-a", browser, url])
+            .spawn();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let (browser, url) = match target {
+            BrowserTarget::Chrome => ("google-chrome", "chrome://extensions"),
+            BrowserTarget::Edge => ("microsoft-edge", "edge://extensions"),
+        };
+        let _ = std::process::Command::new(browser).arg(url).spawn();
+    }
 }

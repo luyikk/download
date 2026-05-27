@@ -26,13 +26,33 @@ pub struct DownloadFile {
 
 impl DownloadFile {
     /// Build a shared reqwest client.
-    /// `cookies_json`: optional JSON — object `{"k":"v"}` or array `[{"name":"k","value":"v"}]`.
-    fn build_client(cookies_json: Option<&str>) -> reqwest::Client {
+    ///
+    /// `cookies` accepts three formats:
+    /// - JSON object  `{"k":"v", ...}`
+    /// - JSON array   `[{"name":"k","value":"v"}, ...]`
+    /// - Plain header `name=value; name2=value2` (the format browsers/extensions use)
+    fn build_client(cookies: Option<&str>) -> reqwest::Client {
         let mut headers = reqwest::header::HeaderMap::new();
-        if let Some(json) = cookies_json {
-            if let Some(cookie_str) = Self::parse_cookies_json(json) {
-                if let Ok(val) = reqwest::header::HeaderValue::from_str(&cookie_str) {
-                    headers.insert(reqwest::header::COOKIE, val);
+        if let Some(raw) = cookies {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                // Detect JSON vs plain cookie string by checking the first non-whitespace char.
+                let cookie_str = if trimmed.starts_with('{') || trimmed.starts_with('[') {
+                    // JSON format — parse into name=value pairs.
+                    Self::parse_cookies_json(trimmed)
+                } else {
+                    // Plain "name=value; name2=value2" format — use as-is.
+                    Some(trimmed.to_string())
+                };
+                if let Some(val_str) = cookie_str {
+                    match reqwest::header::HeaderValue::from_str(&val_str) {
+                        Ok(val) => {
+                            headers.insert(reqwest::header::COOKIE, val);
+                        }
+                        Err(e) => {
+                            log::warn!("cookie header value invalid, skipping: {}", e);
+                        }
+                    }
                 }
             }
         }
@@ -764,5 +784,15 @@ mod tests {
     fn parse_cookies_json_empty_returns_none() {
         assert!(DownloadFile::parse_cookies_json("{}").is_none());
         assert!(DownloadFile::parse_cookies_json("[]").is_none());
+    }
+
+    #[test]
+    fn build_client_accepts_plain_cookie_string() {
+        // Plain "name=value; name=value" format should not panic and should build a client.
+        // We just verify it doesn't blow up (no assertion on headers from outside).
+        let _client = DownloadFile::build_client(Some("session=abc123; token=xyz456"));
+        let _client2 = DownloadFile::build_client(Some("__Host-user_session_same_site=XXXX"));
+        let _client3 = DownloadFile::build_client(Some(""));
+        let _client4 = DownloadFile::build_client(None);
     }
 }
