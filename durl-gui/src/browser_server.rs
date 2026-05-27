@@ -29,8 +29,11 @@ pub fn start_browser_server(tx: mpsc::Sender<BrowserDownloadReq>) {
     std::thread::Builder::new()
         .name("browser-server".into())
         .spawn(move || {
-            let sys = ntex::rt::System::new("durl-browser-server");
-            if let Err(e) = sys.block_on(run_server(tx)) {
+            // ntex v3: Builder::build(runner) → SystemRunner::block_on(fut)
+            if let Err(e) = ntex::rt::System::build()
+                .build(ntex::rt::DefaultRuntime)
+                .block_on(run_server(tx))
+            {
                 log::error!("[browser_server] server exited with error: {e}");
             }
         })
@@ -40,10 +43,10 @@ pub fn start_browser_server(tx: mpsc::Sender<BrowserDownloadReq>) {
 async fn run_server(tx: mpsc::Sender<BrowserDownloadReq>) -> std::io::Result<()> {
     let shared = std::sync::Arc::new(tx);
 
-    web::HttpServer::new(move || {
-        let shared = shared.clone();
+    // ntex v3: the factory must be an `async fn` closure (`AsyncFn() -> I`).
+    web::HttpServer::new(async move || {
         App::new()
-            .state(shared)
+            .state(shared.clone())
             // CORS pre-flight
             .route("/download", web::method(Method::OPTIONS).to(cors_preflight))
             .route("/ping", web::get().to(ping))
