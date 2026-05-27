@@ -1570,6 +1570,7 @@ fn config_path() -> PathBuf {
 
 fn compute_sha256(path: &str) -> Result<String, std::io::Error> {
     use sha2::{Digest, Sha256};
+
     let mut file = std::fs::File::open(path)?;
     let mut hasher = Sha256::new();
     std::io::copy(&mut file, &mut hasher)?;

@@ -10,17 +10,17 @@ tokio = { version = "1", features = ["full"] }
 humansize = "2"
 chrono = "0.4"
 open = "5"
-rfd = "0.15"
+rfd = "0.17"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-toml = "0.8"
-sha2 = "0.10"
+toml = "1"
+sha2 =  "0.10"
 dirs = "6"
-ico = "0.3"
+ico = "0.5"
 pollster = "0.4"
 
 [build-dependencies]
 winres = "0.1"
-ico = "0.3"
+ico = "0.5"
 
