@@ -150,6 +150,7 @@ pub struct DUrlApp {
     // Browser extension install guide
     show_ext_install_guide: bool,
     ext_install_path: String,
+    ext_browser_url: String, // "chrome://extensions" or "edge://extensions"
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -253,6 +254,7 @@ impl DUrlApp {
             browser_rx: Some(browser_rx),
             show_ext_install_guide: false,
             ext_install_path: String::new(),
+            ext_browser_url: String::new(),
         }
     }
 
@@ -1494,8 +1496,9 @@ impl DUrlApp {
                                 match extract_extension_files() {
                                     Ok(path) => {
                                         self.ext_install_path = path.display().to_string();
+                                        self.ext_browser_url = "chrome://extensions".to_string();
                                         self.show_ext_install_guide = true;
-                                        open_browser_extensions_page(BrowserTarget::Chrome);
+                                        launch_browser(BrowserKind::Chrome);
                                     }
                                     Err(e) => {
                                         log::error!("[ext] Failed to extract extension: {e}");
@@ -1515,8 +1518,9 @@ impl DUrlApp {
                                 match extract_extension_files() {
                                     Ok(path) => {
                                         self.ext_install_path = path.display().to_string();
+                                        self.ext_browser_url = "edge://extensions".to_string();
                                         self.show_ext_install_guide = true;
-                                        open_browser_extensions_page(BrowserTarget::Edge);
+                                        launch_browser(BrowserKind::Edge);
                                     }
                                     Err(e) => {
                                         log::error!("[ext] Failed to extract extension: {e}");
@@ -1565,13 +1569,25 @@ impl DUrlApp {
         let lbl_path = self.lang.get("dialog_ext_install.path_label").to_string();
         let lbl_copy = self.lang.get("dialog_ext_install.copy_path").to_string();
         let step1 = self.lang.get("dialog_ext_install.step1").to_string();
-        let step2 = self.lang.get("dialog_ext_install.step2").to_string();
+        let step2 = if self.ext_browser_url.starts_with("edge") {
+            self.lang.get("dialog_ext_install.step2_edge").to_string()
+        } else {
+            self.lang.get("dialog_ext_install.step2").to_string()
+        };
         let step3 = self.lang.get("dialog_ext_install.step3").to_string();
         let step4 = self.lang.get("dialog_ext_install.step4").to_string();
-        let lbl_chrome = self.lang.get("dialog_ext_install.open_chrome").to_string();
-        let lbl_edge = self.lang.get("dialog_ext_install.open_edge").to_string();
+        let lbl_chrome_url = self
+            .lang
+            .get("dialog_ext_install.chrome_url_label")
+            .to_string();
+        let lbl_edge_url = self
+            .lang
+            .get("dialog_ext_install.edge_url_label")
+            .to_string();
+        let lbl_copy_url = self.lang.get("dialog_ext_install.copy_url").to_string();
         let lbl_close = self.lang.get("dialog_ext_install.close").to_string();
         let ext_path = self.ext_install_path.clone();
+        let ext_browser_url = self.ext_browser_url.clone();
 
         let mut open = true;
         egui::Window::new(&title)
@@ -1602,26 +1618,27 @@ impl DUrlApp {
                 }
                 ui.add_space(10.0);
 
+                // Show only the URL for the selected browser
+                let (url_label, url_value) = if ext_browser_url.starts_with("edge") {
+                    (lbl_edge_url.as_str(), "edge://extensions")
+                } else {
+                    (lbl_chrome_url.as_str(), "chrome://extensions")
+                };
                 ui.horizontal(|ui| {
-                    if ui
-                        .add(
-                            egui::Button::new(RichText::new(&lbl_chrome).color(Color32::WHITE))
-                                .fill(BLUE_PRIMARY),
-                        )
-                        .clicked()
-                    {
-                        open_browser_extensions_page(BrowserTarget::Chrome);
+                    ui.label(RichText::new(url_label).strong().size(12.5));
+                    let mut url_display = url_value.to_string();
+                    ui.add(
+                        egui::TextEdit::singleline(&mut url_display)
+                            .desired_width(ui.available_width() - 72.0)
+                            .interactive(false),
+                    );
+                    if ui.button(&lbl_copy_url).clicked() {
+                        ui.ctx().copy_text(url_value.to_string());
                     }
-                    ui.add_space(8.0);
-                    if ui
-                        .add(
-                            egui::Button::new(RichText::new(&lbl_edge).color(Color32::WHITE))
-                                .fill(Color32::from_rgb(0, 120, 212)),
-                        )
-                        .clicked()
-                    {
-                        open_browser_extensions_page(BrowserTarget::Edge);
-                    }
+                });
+                ui.add_space(10.0);
+
+                ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button(&lbl_close).clicked() {
                             self.show_ext_install_guide = false;
@@ -1740,13 +1757,6 @@ fn compute_sha256(path: &str) -> Result<String, std::io::Error> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-// ── Browser extension helpers ─────────────────────────────────────────────────
-
-enum BrowserTarget {
-    Chrome,
-    Edge,
-}
-
 /// Extract the bundled browser extension files to the app config directory.
 /// Returns the directory path on success.
 fn extract_extension_files() -> Result<std::path::PathBuf, std::io::Error> {
@@ -1779,34 +1789,40 @@ fn extract_extension_files() -> Result<std::path::PathBuf, std::io::Error> {
     Ok(dir)
 }
 
-/// Open the browser's extensions management page.
-fn open_browser_extensions_page(target: BrowserTarget) {
+// ── Browser launcher ──────────────────────────────────────────────────────────
+
+enum BrowserKind {
+    Chrome,
+    Edge,
+}
+
+/// Launch the browser without navigating to any URL.
+/// The user will copy the extensions URL from the dialog and paste it manually.
+fn launch_browser(kind: BrowserKind) {
     #[cfg(windows)]
     {
-        let (browser, url) = match target {
-            BrowserTarget::Chrome => ("chrome", "chrome://extensions"),
-            BrowserTarget::Edge => ("msedge", "edge://extensions"),
+        let browser = match kind {
+            BrowserKind::Chrome => "chrome",
+            BrowserKind::Edge => "msedge",
         };
         let _ = std::process::Command::new("cmd")
-            .args(["/C", "start", browser, url])
+            .args(["/C", "start", browser])
             .spawn();
     }
     #[cfg(target_os = "macos")]
     {
-        let (browser, url) = match target {
-            BrowserTarget::Chrome => ("Google Chrome", "chrome://extensions"),
-            BrowserTarget::Edge => ("Microsoft Edge", "edge://extensions"),
+        let app = match kind {
+            BrowserKind::Chrome => "Google Chrome",
+            BrowserKind::Edge => "Microsoft Edge",
         };
-        let _ = std::process::Command::new("open")
-            .args(["-a", browser, url])
-            .spawn();
+        let _ = std::process::Command::new("open").args(["-a", app]).spawn();
     }
     #[cfg(target_os = "linux")]
     {
-        let (browser, url) = match target {
-            BrowserTarget::Chrome => ("google-chrome", "chrome://extensions"),
-            BrowserTarget::Edge => ("microsoft-edge", "edge://extensions"),
+        let browser = match kind {
+            BrowserKind::Chrome => "google-chrome",
+            BrowserKind::Edge => "microsoft-edge",
         };
-        let _ = std::process::Command::new(browser).arg(url).spawn();
+        let _ = std::process::Command::new(browser).spawn();
     }
 }
