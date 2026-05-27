@@ -209,7 +209,7 @@ fn extract_filename(path: &str) -> String {
         .unwrap_or_else(|| path.to_string())
 }
 
-// ── DurlApp implementation ──────────────────────────────────────────────────
+// ── DUrlApp implementation ──────────────────────────────────────────────────
 
 impl DUrlApp {
     pub fn new(
@@ -1276,9 +1276,9 @@ impl DUrlApp {
         let title = self.lang.get("dialog_new.title").to_string();
         let lbl_url = self.lang.get("dialog_new.url").to_string();
         let lbl_save = self.lang.get("dialog_new.save_dir").to_string();
-        let lbl_fname = self.lang.get("dialog_new.filename").to_string();
-        let lbl_fname_hint = self.lang.get("dialog_new.filename_hint").to_string();
-        let lbl_conc = self.lang.get("dialog_new.concurrency").to_string();
+        let lbl_filename = self.lang.get("dialog_new.filename").to_string();
+        let lbl_filename_hint = self.lang.get("dialog_new.filename_hint").to_string();
+        let lbl_concurrency = self.lang.get("dialog_new.concurrency").to_string();
         let lbl_cancel = self.lang.get("dialog_new.cancel").to_string();
         let lbl_start = self.lang.get("dialog_new.start").to_string();
         let lbl_browse = self.lang.get("dialog_new.browse").to_string();
@@ -1324,17 +1324,17 @@ impl DUrlApp {
                 ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
-                    ui.label(&lbl_fname);
+                    ui.label(&lbl_filename);
                     ui.add(
                         egui::TextEdit::singleline(&mut self.new_filename)
                             .desired_width(ui.available_width())
-                            .hint_text(&lbl_fname_hint),
+                            .hint_text(&lbl_filename_hint),
                     );
                 });
                 ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
-                    ui.label(&lbl_conc);
+                    ui.label(&lbl_concurrency);
                     ui.add(
                         egui::TextEdit::singleline(&mut self.new_task_count).desired_width(80.0),
                     );
@@ -1657,35 +1657,6 @@ impl DUrlApp {
 // ── eframe::App ──────────────────────────────────────────────────────────────
 
 impl eframe::App for DUrlApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        ctx.request_repaint_after(Duration::from_millis(200));
-        self.update_tasks();
-        self.drain_lib_logs();
-        self.flush_if_dirty();
-
-        // Pull download requests coming from the browser extension.
-        if let Some(rx) = &self.browser_rx {
-            if let Ok(req) = rx.try_recv() {
-                log::trace!(
-                    "Received new download request from browser: url={}, cookies={:?}",
-                    req.url,
-                    req.cookies
-                );
-                self.new_url = req.url;
-                self.new_cookies = req.cookies;
-                if let Some(fname) = req.filename {
-                    self.new_filename = fname;
-                }
-                self.show_new_dialog = true;
-                ctx.request_repaint();
-            }
-        }
-
-        if ctx.input(|i| i.viewport().close_requested()) {
-            self.save_tasks();
-        }
-    }
-
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::Panel::top("toolbar")
             .exact_size(42.0)
@@ -1742,6 +1713,32 @@ impl eframe::App for DUrlApp {
         self.render_settings_dialog(&ctx);
         self.render_ext_install_dialog(&ctx);
     }
+
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.request_repaint_after(Duration::from_millis(200));
+        self.update_tasks();
+        self.drain_lib_logs();
+        self.flush_if_dirty();
+
+        // Pull download requests coming from the browser extension.
+        if let Some(rx) = &self.browser_rx {
+            if let Ok(req) = rx.try_recv() {
+                log::trace!(
+                    "Received new download request from browser: url={}, cookies={:?}",
+                    req.url,
+                    req.cookies
+                );
+                self.new_url = req.url;
+                self.new_cookies = req.cookies;
+                self.show_new_dialog = true;
+                ctx.request_repaint();
+            }
+        }
+
+        if ctx.input(|i| i.viewport().close_requested()) {
+            self.save_tasks();
+        }
+    }
 }
 
 fn config_path() -> PathBuf {
@@ -1759,7 +1756,7 @@ fn compute_sha256(path: &str) -> Result<String, std::io::Error> {
 
 /// Extract the bundled browser extension files to the app config directory.
 /// Returns the directory path on success.
-fn extract_extension_files() -> Result<std::path::PathBuf, std::io::Error> {
+fn extract_extension_files() -> Result<PathBuf, std::io::Error> {
     let dir = crate::paths::extension_dir();
     let icons_dir = dir.join("icons");
     std::fs::create_dir_all(&icons_dir)?;
