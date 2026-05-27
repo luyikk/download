@@ -1,0 +1,98 @@
+# Russian Language Pack
+
+[meta]
+display_name = "Русский"
+
+[sidebar]
+my_downloads = "📥 Загрузки"
+all_tasks = "📋 Все задачи"
+downloading = "⬇ Загружается"
+completed = "✅ Завершено"
+
+[toolbar]
+new_download = "➕ Новая"
+pause = "⏸ Пауза"
+resume = "▶ Продолжить"
+delete = "🗑 Удалить"
+settings = "⚙ Настройки"
+active_speed = "Активных: {active}  Скорость: {speed}"
+
+[table]
+col_status = "Статус"
+col_filename = "Имя файла"
+col_filesize = "Размер"
+col_progress = "Прогресс"
+col_speed = "Скорость"
+col_remaining = "Осталось"
+col_elapsed = "Прошло"
+col_filetype = "Тип"
+col_sha256 = "SHA256"
+empty_all = "Нет задач. Нажмите ➕ Новая, чтобы начать загрузку."
+empty_downloading = "Нет активных загрузок"
+empty_completed = "Нет завершённых загрузок"
+
+[file_type]
+archive = "Архив"
+installer = "Установщик"
+video = "Видео"
+audio = "Аудио"
+image = "Изображение"
+pdf = "PDF"
+document = "Документ"
+disk_image = "Образ диска"
+text = "Текст"
+unknown = "—"
+
+[context_menu]
+pause = "⏸ Пауза"
+resume = "▶ Продолжить"
+open_file = "📂 Открыть файл"
+open_dir = "📁 Открыть папку"
+copy_url = "📋 Копировать ссылку"
+copy_sha256 = "📋 Копировать SHA256"
+redownload = "🔄 Перезагрузить"
+delete = "🗑 Удалить задачу"
+
+[log_panel]
+title = "📋 Журнал"
+empty = "Выберите задачу для просмотра журнала"
+
+[dialog_new]
+title = "Новая загрузка"
+url = "Ссылка:"
+save_dir = "Сохранить в:"
+filename = "Имя файла:"
+filename_hint = "Оставьте пустым для автоопределения"
+concurrency = "Потоков:"
+cancel = "Отмена"
+start = "Начать"
+browse = "Обзор"
+
+[dialog_settings]
+title = "Настройки"
+default_dir = "Папка по умолчанию:"
+default_threads = "Потоков по умолчанию:"
+language = "Язык:"
+log_level = "Уровень журнала:"
+lang_dir = "Папка языков:"
+open_dir = "Открыть"
+lang_dir_hint = "💡 Поместите пользовательские .toml файлы в папку языков для добавления новых языков. Используйте en-US.toml как шаблон."
+ok = "OK"
+browser_ext = "🔌 Расширение браузера:"
+browser_ext_install_chrome = "📦 Установить для Chrome"
+browser_ext_install_edge = "📦 Установить для Edge"
+
+[dialog_ext_install]
+title = "Установка расширения браузера"
+path_label = "Папка расширения:"
+copy_path = "Копировать путь"
+step1 = "1. Скопируйте ссылку ниже и вставьте в адресную строку браузера"
+step2 = "2. Включите «Режим разработчика» (переключатель вверху справа)"
+step2_edge = "2. Включите «Режим разработчика» (переключатель внизу слева)"
+step3 = "3. Нажмите «Загрузить распакованное расширение»"
+step4 = "4. Выберите папку, указанную выше"
+chrome_url_label = "URL страницы расширений Chrome:"
+edge_url_label = "URL страницы расширений Edge:"
+copy_url = "Копировать"
+close = "Закрыть"
+

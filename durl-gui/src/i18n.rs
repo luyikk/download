@@ -88,13 +88,19 @@ fn read_display_name(path: &Path, fallback: &str) -> String {
 /// Ensure that default language files exist and are up-to-date.
 /// If a file is missing or its content differs from the embedded default, regenerate it.
 fn ensure_default_lang_files(dir: &Path) {
-    let zh_path = dir.join("zh-CN.toml");
-    if should_regenerate(&zh_path, DEFAULT_ZH_CN) {
-        let _ = std::fs::write(&zh_path, DEFAULT_ZH_CN);
-    }
-    let en_path = dir.join("en-US.toml");
-    if should_regenerate(&en_path, DEFAULT_EN_US) {
-        let _ = std::fs::write(&en_path, DEFAULT_EN_US);
+    let files: &[(&str, &str)] = &[
+        ("zh-CN.toml", DEFAULT_ZH_CN),
+        ("en-US.toml", DEFAULT_EN_US),
+        ("ja-JP.toml", DEFAULT_JA_JP),
+        ("ru-RU.toml", DEFAULT_RU_RU),
+        ("fr-FR.toml", DEFAULT_FR_FR),
+        ("de-DE.toml", DEFAULT_DE_DE),
+    ];
+    for (filename, content) in files {
+        let path = dir.join(filename);
+        if should_regenerate(&path, content) {
+            let _ = std::fs::write(&path, content);
+        }
     }
 }
 
@@ -137,5 +143,8 @@ fn flatten_table(prefix: &str, table: &toml::Table, map: &mut HashMap<String, St
 // ── Embedded default language files (compiled from lang/*.toml) ──────────────
 
 const DEFAULT_ZH_CN: &str = include_str!("../lang/zh-CN.toml");
-
 const DEFAULT_EN_US: &str = include_str!("../lang/en-US.toml");
+const DEFAULT_JA_JP: &str = include_str!("../lang/ja-JP.toml");
+const DEFAULT_RU_RU: &str = include_str!("../lang/ru-RU.toml");
+const DEFAULT_FR_FR: &str = include_str!("../lang/fr-FR.toml");
+const DEFAULT_DE_DE: &str = include_str!("../lang/de-DE.toml");

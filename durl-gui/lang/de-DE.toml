@@ -1,0 +1,98 @@
+# German Language Pack
+
+[meta]
+display_name = "Deutsch"
+
+[sidebar]
+my_downloads = "📥 Downloads"
+all_tasks = "📋 Alle Aufgaben"
+downloading = "⬇ Lädt herunter"
+completed = "✅ Abgeschlossen"
+
+[toolbar]
+new_download = "➕ Neu"
+pause = "⏸ Pause"
+resume = "▶ Fortsetzen"
+delete = "🗑 Löschen"
+settings = "⚙ Einstellungen"
+active_speed = "Aktiv: {active}  Geschwindigkeit: {speed}"
+
+[table]
+col_status = "Status"
+col_filename = "Dateiname"
+col_filesize = "Größe"
+col_progress = "Fortschritt"
+col_speed = "Geschwindigkeit"
+col_remaining = "Verbleibend"
+col_elapsed = "Vergangen"
+col_filetype = "Typ"
+col_sha256 = "SHA256"
+empty_all = "Keine Aufgaben. Klicken Sie auf ➕ Neu, um einen Download zu starten."
+empty_downloading = "Keine aktiven Downloads"
+empty_completed = "Keine abgeschlossenen Downloads"
+
+[file_type]
+archive = "Archiv"
+installer = "Installationsprogramm"
+video = "Video"
+audio = "Audio"
+image = "Bild"
+pdf = "PDF"
+document = "Dokument"
+disk_image = "Datenträgerabbild"
+text = "Text"
+unknown = "—"
+
+[context_menu]
+pause = "⏸ Pause"
+resume = "▶ Fortsetzen"
+open_file = "📂 Datei öffnen"
+open_dir = "📁 Ordner öffnen"
+copy_url = "📋 URL kopieren"
+copy_sha256 = "📋 SHA256 kopieren"
+redownload = "🔄 Erneut herunterladen"
+delete = "🗑 Aufgabe löschen"
+
+[log_panel]
+title = "📋 Protokoll"
+empty = "Wählen Sie eine Aufgabe aus, um das Protokoll anzuzeigen"
+
+[dialog_new]
+title = "Neuer Download"
+url = "URL:"
+save_dir = "Speichern in:"
+filename = "Dateiname:"
+filename_hint = "Leer lassen für automatische Erkennung"
+concurrency = "Threads:"
+cancel = "Abbrechen"
+start = "Starten"
+browse = "Durchsuchen"
+
+[dialog_settings]
+title = "Einstellungen"
+default_dir = "Standard-Speicherordner:"
+default_threads = "Standard-Threads:"
+language = "Sprache:"
+log_level = "Protokollebene:"
+lang_dir = "Sprachordner:"
+open_dir = "Öffnen"
+lang_dir_hint = "💡 Legen Sie benutzerdefinierte .toml-Sprachdateien in den Sprachordner, um neue Sprachen hinzuzufügen. Kopieren Sie en-US.toml als Vorlage."
+ok = "OK"
+browser_ext = "🔌 Browser-Erweiterung:"
+browser_ext_install_chrome = "📦 Für Chrome installieren"
+browser_ext_install_edge = "📦 Für Edge installieren"
+
+[dialog_ext_install]
+title = "Browser-Erweiterung installieren"
+path_label = "Erweiterungsordner:"
+copy_path = "Pfad kopieren"
+step1 = "1. Kopieren Sie die URL unten und fügen Sie sie in die Adressleiste Ihres Browsers ein"
+step2 = "2. Aktivieren Sie den \"Entwicklermodus\" (Schalter oben rechts)"
+step2_edge = "2. Aktivieren Sie den \"Entwicklermodus\" (Schalter unten links)"
+step3 = "3. Klicken Sie auf \"Entpackte Erweiterung laden\""
+step4 = "4. Wählen Sie den oben angezeigten Ordner aus"
+chrome_url_label = "Chrome-Erweiterungen URL:"
+edge_url_label = "Edge-Erweiterungen URL:"
+copy_url = "Kopieren"
+close = "Schließen"
+

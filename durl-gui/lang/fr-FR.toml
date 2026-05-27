@@ -1,0 +1,98 @@
+# French Language Pack
+
+[meta]
+display_name = "Français"
+
+[sidebar]
+my_downloads = "📥 Téléchargements"
+all_tasks = "📋 Toutes les tâches"
+downloading = "⬇ En cours"
+completed = "✅ Terminé"
+
+[toolbar]
+new_download = "➕ Nouveau"
+pause = "⏸ Pause"
+resume = "▶ Reprendre"
+delete = "🗑 Supprimer"
+settings = "⚙ Paramètres"
+active_speed = "Actifs : {active}  Vitesse : {speed}"
+
+[table]
+col_status = "Statut"
+col_filename = "Nom du fichier"
+col_filesize = "Taille"
+col_progress = "Progression"
+col_speed = "Vitesse"
+col_remaining = "Restant"
+col_elapsed = "Écoulé"
+col_filetype = "Type"
+col_sha256 = "SHA256"
+empty_all = "Aucune tâche. Cliquez sur ➕ Nouveau pour démarrer un téléchargement."
+empty_downloading = "Aucun téléchargement actif"
+empty_completed = "Aucun téléchargement terminé"
+
+[file_type]
+archive = "Archive"
+installer = "Programme d'installation"
+video = "Vidéo"
+audio = "Audio"
+image = "Image"
+pdf = "PDF"
+document = "Document"
+disk_image = "Image disque"
+text = "Texte"
+unknown = "—"
+
+[context_menu]
+pause = "⏸ Pause"
+resume = "▶ Reprendre"
+open_file = "📂 Ouvrir le fichier"
+open_dir = "📁 Ouvrir le dossier"
+copy_url = "📋 Copier l'URL"
+copy_sha256 = "📋 Copier SHA256"
+redownload = "🔄 Retélécharger"
+delete = "🗑 Supprimer la tâche"
+
+[log_panel]
+title = "📋 Journaux"
+empty = "Sélectionnez une tâche pour voir les journaux"
+
+[dialog_new]
+title = "Nouveau téléchargement"
+url = "URL :"
+save_dir = "Enregistrer dans :"
+filename = "Nom du fichier :"
+filename_hint = "Laisser vide pour la détection automatique"
+concurrency = "Threads :"
+cancel = "Annuler"
+start = "Démarrer"
+browse = "Parcourir"
+
+[dialog_settings]
+title = "Paramètres"
+default_dir = "Dossier de sauvegarde par défaut :"
+default_threads = "Threads par défaut :"
+language = "Langue :"
+log_level = "Niveau de journal :"
+lang_dir = "Dossier des langues :"
+open_dir = "Ouvrir"
+lang_dir_hint = "💡 Placez des fichiers .toml personnalisés dans le dossier des langues pour ajouter de nouvelles langues. Copiez en-US.toml comme modèle."
+ok = "OK"
+browser_ext = "🔌 Extension navigateur :"
+browser_ext_install_chrome = "📦 Installer pour Chrome"
+browser_ext_install_edge = "📦 Installer pour Edge"
+
+[dialog_ext_install]
+title = "Installer l'extension navigateur"
+path_label = "Dossier de l'extension :"
+copy_path = "Copier le chemin"
+step1 = "1. Copiez l'URL ci-dessous et collez-la dans la barre d'adresse de votre navigateur"
+step2 = "2. Activez le « Mode développeur » (bouton en haut à droite)"
+step2_edge = "2. Activez le « Mode développeur » (bouton en bas à gauche)"
+step3 = "3. Cliquez sur « Charger l'extension non empaquetée »"
+step4 = "4. Sélectionnez le dossier indiqué ci-dessus"
+chrome_url_label = "URL des extensions Chrome :"
+edge_url_label = "URL des extensions Edge :"
+copy_url = "Copier"
+close = "Fermer"
+
