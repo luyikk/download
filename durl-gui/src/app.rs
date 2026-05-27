@@ -3,7 +3,7 @@ use crate::config::{UserConfig, LOG_LEVELS};
 use crate::gui_logger::LogBuffer;
 use crate::i18n::{available_languages, LangStrings};
 use download_lib::DownloadFile;
-use eframe::egui::{self, Color32, RichText, Rounding, Vec2};
+use eframe::egui::{self, Color32, CornerRadius, RichText, Vec2};
 use humansize::{format_size, BINARY};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -303,12 +303,12 @@ impl DUrlApp {
     }
 
     fn setup_style(ctx: &egui::Context) {
-        let mut style = (*ctx.style()).clone();
+        let mut style = (*ctx.global_style()).clone();
         style.visuals = egui::Visuals::light();
-        style.visuals.window_rounding = Rounding::same(6.0);
-        style.visuals.widgets.noninteractive.rounding = Rounding::same(4.0);
+        style.visuals.window_corner_radius = CornerRadius::same(6);
+        style.visuals.widgets.noninteractive.corner_radius = CornerRadius::same(4);
         style.spacing.item_spacing = Vec2::new(6.0, 4.0);
-        ctx.set_style(style);
+        ctx.set_global_style(style);
     }
 
     // ── Persistence ─────────────────────────────────────────────────────────
@@ -912,10 +912,10 @@ impl DUrlApp {
                     Color32::from_gray(60)
                 };
 
-                let resp = egui::Frame::none()
+                let resp = egui::Frame::new()
                     .fill(bg)
-                    .rounding(Rounding::same(4.0))
-                    .inner_margin(egui::Margin::symmetric(8.0, 6.0))
+                    .corner_radius(CornerRadius::same(4))
+                    .inner_margin(egui::Margin::symmetric(8, 6))
                     .show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.horizontal(|ui| {
@@ -957,9 +957,9 @@ impl DUrlApp {
             + 50.0;
         let col_name = (avail - fixed).max(150.0);
 
-        egui::Frame::none()
+        egui::Frame::new()
             .fill(BLUE_HEADER)
-            .inner_margin(egui::Margin::symmetric(4.0, 4.0))
+            .inner_margin(egui::Margin::symmetric(4, 4))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.add_sized(
@@ -1094,9 +1094,9 @@ impl DUrlApp {
                         Color32::WHITE
                     };
 
-                    let resp = egui::Frame::none()
+                    let resp = egui::Frame::new()
                         .fill(bg)
-                        .inner_margin(egui::Margin::symmetric(4.0, 0.0))
+                        .inner_margin(egui::Margin::symmetric(4, 0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
                                 ui.set_min_height(ROW_H);
@@ -1187,39 +1187,39 @@ impl DUrlApp {
                     resp.context_menu(|ui| {
                         ui.set_min_width(200.0);
                         if ui.button(&ctx_copy_url).clicked() {
-                            ui.output_mut(|o| o.copied_text = url.clone());
-                            ui.close_menu();
+                            ui.ctx().copy_text(url.clone());
+                            ui.close();
                         }
                         if let Some(ref hash) = sha256 {
                             if ui.button(&ctx_copy_sha256).clicked() {
-                                ui.output_mut(|o| o.copied_text = hash.clone());
-                                ui.close_menu();
+                                ui.ctx().copy_text(hash.clone());
+                                ui.close();
                             }
                         }
                         ui.separator();
                         match status {
                             TaskStatus::Downloading if ui.button(&ctx_pause).clicked() => {
                                 action = Some(Action::Pause(id));
-                                ui.close_menu();
+                                ui.close();
                             }
                             TaskStatus::Paused if ui.button(&ctx_resume).clicked() => {
                                 action = Some(Action::Resume(id));
-                                ui.close_menu();
+                                ui.close();
                             }
                             TaskStatus::Completed => {
                                 if !file_path.is_empty() {
                                     if ui.button(&ctx_open_file).clicked() {
                                         action = Some(Action::OpenFile(file_path.clone()));
-                                        ui.close_menu();
+                                        ui.close();
                                     }
                                     if ui.button(&ctx_open_dir).clicked() {
                                         action = Some(Action::OpenDir(file_path.clone()));
-                                        ui.close_menu();
+                                        ui.close();
                                     }
                                 }
                                 if ui.button(&ctx_redownload).clicked() {
                                     action = Some(Action::Redownload(id));
-                                    ui.close_menu();
+                                    ui.close();
                                 }
                             }
                             _ => {}
@@ -1227,7 +1227,7 @@ impl DUrlApp {
                         ui.separator();
                         if ui.button(&ctx_delete).clicked() {
                             action = Some(Action::Delete(id));
-                            ui.close_menu();
+                            ui.close();
                         }
                     });
                 }
@@ -1592,7 +1592,7 @@ impl DUrlApp {
                             .interactive(false),
                     );
                     if ui.button(&lbl_copy).clicked() {
-                        ui.output_mut(|o| o.copied_text = ext_path.clone());
+                        ui.ctx().copy_text(ext_path.clone());
                     }
                 });
 
@@ -1647,10 +1647,8 @@ impl eframe::App for DUrlApp {
         self.flush_if_dirty();
 
         // Pull download requests coming from the browser extension.
-        // Only the first pending request is handled per frame to keep the UI responsive.
         if let Some(rx) = &self.browser_rx {
             if let Ok(req) = rx.try_recv() {
-                // Populate the new-download dialog fields and show it.
                 log::trace!(
                     "Received new download request from browser: url={}, cookies={:?}",
                     req.url,
@@ -1662,7 +1660,6 @@ impl eframe::App for DUrlApp {
                     self.new_filename = fname;
                 }
                 self.show_new_dialog = true;
-                // Bring the window to front by requesting a repaint immediately.
                 ctx.request_repaint();
             }
         }
@@ -1670,60 +1667,63 @@ impl eframe::App for DUrlApp {
         if ctx.input(|i| i.viewport().close_requested()) {
             self.save_tasks();
         }
+    }
 
-        egui::TopBottomPanel::top("toolbar")
-            .exact_height(42.0)
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Panel::top("toolbar")
+            .exact_size(42.0)
             .frame(
-                egui::Frame::none()
+                egui::Frame::new()
                     .fill(Color32::WHITE)
-                    .inner_margin(egui::Margin::symmetric(8.0, 6.0)),
+                    .inner_margin(egui::Margin::symmetric(8, 6)),
             )
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 self.render_toolbar(ui);
             });
 
-        egui::SidePanel::left("sidebar")
+        egui::Panel::left("sidebar")
             .resizable(true)
-            .default_width(SIDEBAR_W)
-            .min_width(130.0)
-            .max_width(250.0)
+            .default_size(SIDEBAR_W)
+            .min_size(130.0)
+            .max_size(250.0)
             .frame(
-                egui::Frame::none()
+                egui::Frame::new()
                     .fill(GRAY_BG)
-                    .inner_margin(egui::Margin::symmetric(8.0, 4.0)),
+                    .inner_margin(egui::Margin::symmetric(8, 4)),
             )
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 self.render_sidebar(ui);
             });
 
-        egui::TopBottomPanel::bottom("log_panel")
+        egui::Panel::bottom("log_panel")
             .resizable(true)
-            .default_height(120.0)
-            .min_height(60.0)
-            .max_height(300.0)
+            .default_size(120.0)
+            .min_size(60.0)
+            .max_size(300.0)
             .frame(
-                egui::Frame::none()
+                egui::Frame::new()
                     .fill(Color32::WHITE)
-                    .inner_margin(egui::Margin::symmetric(8.0, 4.0))
+                    .inner_margin(egui::Margin::symmetric(8, 4))
                     .stroke(egui::Stroke::new(1.0, Color32::from_gray(220))),
             )
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 self.render_log_panel(ui);
             });
 
         egui::CentralPanel::default()
             .frame(
-                egui::Frame::none()
+                egui::Frame::new()
                     .fill(Color32::WHITE)
-                    .inner_margin(egui::Margin::same(0.0)),
+                    .inner_margin(egui::Margin::same(0)),
             )
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 self.render_table(ui);
             });
 
-        self.render_new_dialog(ctx);
-        self.render_settings_dialog(ctx);
-        self.render_ext_install_dialog(ctx);
+        let ctx = ui.ctx().clone();
+        self.render_new_dialog(&ctx);
+        self.render_settings_dialog(&ctx);
+        self.render_ext_install_dialog(&ctx);
     }
 }
 
