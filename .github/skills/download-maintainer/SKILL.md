@@ -146,10 +146,14 @@ DurlApp (app.rs)
   rt:    tokio::Runtime                 # multi-thread, 2 workers
   tasks: Vec<DownloadTask>             # per-task state (NO logs field)
   logs:  Vec<String>                   # single shared log panel (all tasks, max 5000)
+  browser_rx: Option<mpsc::Receiver<BrowserDownloadReq>>  # incoming from browser ext
+  show_ext_install_guide: bool          # controls install guide dialog visibility
+  ext_install_path: String              # extension folder path shown in install dialog
+  ext_browser_url: String              # "chrome://extensions" or "edge://extensions"
   update_tasks()  -- called each frame: poll sha256_rx, receiver, download status
   drain_lib_logs() -- flush LogBuffer -> self.logs
   render_toolbar / render_sidebar / render_table / render_log_panel
-  render_new_dialog / render_settings_dialog
+  render_new_dialog / render_settings_dialog / render_ext_install_dialog
 
 DownloadTask fields (no logs):
   id, url, filename, file_path, save_dir,
@@ -167,7 +171,7 @@ Persistence (JSON)
   SHA256 persisted in TaskRecord (serde default = None for old records)
 
 i18n (i18n.rs)
-  Built-in: include_str!("../lang/zh-CN.toml") / en-US.toml
+  Built-in: 6 files embedded via include_str!: zh-CN, en-US, ja-JP, ru-RU, fr-FR, de-DE
   On startup: write to lang_dir() if file missing or content differs from embedded
   available_languages(): scan lang_dir(), read [meta] display_name from each .toml
   Users can add custom languages by placing *.toml in lang_dir()
@@ -182,6 +186,59 @@ New download dialog
   Rows: URL, Save to (+ Browse), Filename, Threads, Cookie
   Buttons: Cancel | Start (right-aligned via right_to_left layout)
 ```
+
+## Browser Extension Support (durl-gui)
+
+### browser_server.rs
+- ntex HTTP server on `127.0.0.1:19283`
+- `GET /ping` → "pong" (extension uses this to detect app is running)
+- `POST /download` → JSON `{url, cookies, filename?}` forwarded to GUI via `mpsc::Sender<BrowserDownloadReq>`
+- CORS headers on all responses (extension is a browser origin)
+- Started in `DurlApp::new()` via `start_browser_server(browser_tx)`
+
+### Extension Files (bundled into binary)
+Located in `durl-gui/extension/`:
+- `manifest.json`, `background.js`, `icons/{16,48,128}.png`
+- Extracted to `paths::extension_dir()` (`%APPDATA%/durl-gui/extension/`) by `extract_extension_files()`
+
+### Settings Dialog — Install buttons
+- **"Install for Chrome"** / **"Install for Edge"**:
+  1. `extract_extension_files()` → writes files to `extension_dir()`
+  2. Sets `self.ext_install_path` and `self.ext_browser_url`
+  3. `launch_browser(BrowserKind::Chrome|Edge)` → opens browser (no URL arg)
+  4. Sets `show_ext_install_guide = true`
+
+### render_ext_install_dialog
+- Shows extension folder path + Copy Path button
+- `step2` vs `step2_edge` determined by `ext_browser_url.starts_with("edge")`
+- Shows only one URL row (Chrome or Edge, not both):
+  - Chrome → `chrome_url_label` + `chrome://extensions`
+  - Edge → `edge_url_label` + `edge://extensions`
+- Copy URL button, Close button
+- i18n keys used: `step1`, `step2`, `step2_edge`, `step3`, `step4`, `chrome_url_label`, `edge_url_label`, `copy_url`
+
+### BrowserKind / launch_browser()
+```rust
+enum BrowserKind { Chrome, Edge }
+fn launch_browser(kind: BrowserKind)  // opens browser WITHOUT URL argument
+  // Windows: cmd /C start chrome|msedge
+  // macOS:   open -a "Google Chrome"|"Microsoft Edge"
+  // Linux:   google-chrome|microsoft-edge
+```
+**Important**: `chrome://` and `edge://` URLs are blocked by browsers as CLI args.
+Never pass them as arguments — open blank and let user paste from dialog.
+
+## i18n Built-in Languages
+| File | display_name |
+|------|--------------|
+| zh-CN.toml | 中文 |
+| en-US.toml | English |
+| ja-JP.toml | 日本語 |
+| ru-RU.toml | Русский |
+| fr-FR.toml | Français |
+| de-DE.toml | Deutsch |
+
+All 6 files are embedded via `include_str!` in `i18n.rs` and auto-regenerated on disk at startup.
 
 ## Error Codes
 | Variant         | i32 | Meaning              |
@@ -211,20 +268,20 @@ New download dialog
 
 **Bumping download-lib version:**
   1. `download-lib/Cargo.toml` → new version
-  2. Root `Cargo.toml` → update pin
+  2. `durl/Cargo.toml` → update pin
   3. `libdurl/Cargo.toml` → update pin
   4. `cargo build` in root, `libdurl/`, and `durl-gui/`
   5. Update version strings in all READMEs and this SKILL.md
 
 **Adding a durl-gui i18n key:**
-  1. Add key to both `durl-gui/lang/zh-CN.toml` and `en-US.toml`
+  1. Add key to ALL six `durl-gui/lang/*.toml` files (zh-CN, en-US, ja-JP, ru-RU, fr-FR, de-DE)
   2. `include_str!` in `i18n.rs` picks it up at compile time
   3. On next run, on-disk lang files regenerate automatically if content changed
 
 ## Checklists
 **Before any change:**
   - Read `download-lib/src/lib.rs`, confirm `start_download` param count (currently 6)
-  - `Select-String -Path src\main.rs,libdurl\src\lib.rs,durl-gui\src\app.rs -Pattern "start_download"`
+  - `Select-String -Path durl\src\main.rs,libdurl\src\lib.rs,durl-gui\src\app.rs -Pattern "start_download"`
 
 **After any change:**
   - `cargo build` at `D:\rustprojects\download\`
@@ -233,12 +290,13 @@ New download dialog
   - `cargo test --package download-lib` → 0 failed
   - `libdurl.h` declares every `extern "C" fn` in `lib.rs`
   - `README.md` examples match actual CLI flags
+  - All 6 lang .toml files contain every key used in `app.rs`
 
 **Before publishing:**
   - Both path deps have `version = "X.Y.Z"`
   - `cargo publish --dry-run` in `download-lib/` passes
-  - Publish `download-lib` first, wait for crates.io index
-  - `cargo publish --dry-run` in root passes
+  - Publish `download-lib` first, wait for crates.io index update
+  - `cargo publish --dry-run` in `durl/` passes
   - Publish `durl`
 
 ## Commands
@@ -247,14 +305,14 @@ cd D:\rustprojects\download; cargo build
 cd D:\rustprojects\download\libdurl; cargo build
 cd D:\rustprojects\download\durl-gui; cargo build
 cd D:\rustprojects\download; cargo test --package download-lib
-Select-String -Path "src\main.rs","libdurl\src\lib.rs","durl-gui\src\app.rs" -Pattern "start_download"
+Select-String -Path "durl\src\main.rs","libdurl\src\lib.rs","durl-gui\src\app.rs" -Pattern "start_download"
 cd D:\rustprojects\download\download-lib; cargo publish --dry-run
-cd D:\rustprojects\download; cargo publish --dry-run
+cd D:\rustprojects\download\durl; cargo publish --dry-run
 ```
 
 ## Troubleshooting
 **"all dependencies must have a version requirement when publishing"**
-  Fix: `download-lib = { path = "download-lib", version = "0.2.7" }`
+  Fix: `download-lib = { path = "../download-lib", version = "0.2.9" }`
 
 **"this function takes N arguments but M arguments were supplied"**
   Fix: align all `start_download` call sites to current 6-param signature
@@ -274,6 +332,16 @@ cd D:\rustprojects\download; cargo publish --dry-run
   Cause: GPU driver too old or missing Vulkan/DX12 support
   Fix: update graphics driver; app uses wgpu renderer (not OpenGL)
 
+**Browser extension: clicking "Install for Chrome/Edge" opens blank browser page**
+  This is expected. Browsers block `chrome://` / `edge://` URLs passed as
+  command-line arguments. The user must copy the URL from the install guide
+  dialog and paste it into the browser address bar manually.
+
+**Browser extension: durl-gui not receiving download requests**
+  - Confirm durl-gui is running (browser_server listens on 127.0.0.1:19283)
+  - Confirm extension is installed and enabled in browser
+  - Confirm extension background.js APP_PORT == 19283
+
 ## Invariants (never break)
 1. `task_count >= 1`: `max(min(task_count, size/block), 1)`
 2. Ranges cover size exactly: `debug_assert_eq!(block_size*connect_count+end_add_size, size)`
@@ -283,3 +351,5 @@ cd D:\rustprojects\download; cargo publish --dry-run
 6. All filenames pass `sanitize_filename()` before disk write
 7. `DurlApp.logs` is the single shared log buffer; `DownloadTask` has no `logs` field
 8. SHA256 computed in `std::thread::spawn` (non-blocking), result via `mpsc::channel`
+9. `render_ext_install_dialog` shows only the URL matching `ext_browser_url` (never both Chrome and Edge)
+10. `launch_browser()` never passes `chrome://` or `edge://` as URL arguments
