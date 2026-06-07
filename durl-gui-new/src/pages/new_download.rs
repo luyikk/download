@@ -67,8 +67,8 @@ pub fn NewDownload() -> Element {
                         "{title}"
                     }
                     button {
-                        class: "p-1 rounded-lg {cls.text_muted} hover:{cls.text_primary} \
-                                transition-colors",
+                        class: "p-1 rounded-lg {cls.text_muted} hover:{cls.text_primary} {cls.hover_bg}  \
+                                transition-colors min-w-[30px]",
                         onclick: close,
                         span { class: "text-xl", "✕" }
                     }
@@ -110,7 +110,7 @@ pub fn NewDownload() -> Element {
                             button {
                                 class: "px-4 py-2.5 rounded-lg border {cls.border} {cls.text_secondary} \
                                         {cls.hover_bg} hover:{cls.text_primary} text-base \
-                                        transition-colors shrink-0",
+                                        transition-colors shrink-0 min-w-20",
                                 onclick: move |_| {
                                     if let Some(dir) = rfd::FileDialog::new()
                                         .set_directory(&save_path())
@@ -165,7 +165,7 @@ pub fn NewDownload() -> Element {
                         class: "px-5 py-2.5 rounded-lg text-base font-medium \
                                 border {cls.border} {cls.text_secondary} \
                                 {cls.hover_bg} hover:{cls.text_primary} \
-                                transition-all duration-150",
+                                transition-all duration-150 min-w-20",
                         onclick: close,
                         "{lbl_cancel}"
                     }
@@ -174,7 +174,7 @@ pub fn NewDownload() -> Element {
                                 bg-[#6C5CE7] text-white \
                                 hover:bg-[#7C6CF7] active:bg-[#5C4CD7] \
                                 transition-all duration-150 \
-                                disabled:opacity-40 disabled:pointer-events-none",
+                                disabled:opacity-40 disabled:pointer-events-none min-w-20",
                         disabled: !can_start,
                         onclick: start_download,
                         "{lbl_start}"
