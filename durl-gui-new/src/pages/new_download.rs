@@ -114,16 +114,15 @@ pub fn NewDownload() -> Element {
 
     rsx! {
         div {
-            class: "fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm",
-            onclick: close,
+            class: "fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ",
             div {
-                class: "w-[780px] max-h-[90vh] rounded {cls.card_bg} border {cls.border} \
+                class: "!p-1 w-[780px] max-h-[90vh] rounded {cls.card_bg} border {cls.border} \
                         shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-slide-up",
                 onclick: |e| e.stop_propagation(),
 
                 div { class: "flex items-center justify-between px-8 py-5 border-b {cls.border} shrink-0",
                     h2 { class: "text-lg font-semibold {cls.text_primary}", "{title}" }
-                    button { class: "p-1 rounded-lg {cls.text_muted} hover:{cls.text_primary} transition-colors",
+                    button { class: "p-1 rounded-sm {cls.text_muted} hover:{cls.text_primary} {cls.hover_bg} transition-colors min-w-7",
                         onclick: close, span { class: "text-xl", "✕" }
                     }
                 }
@@ -143,9 +142,9 @@ pub fn NewDownload() -> Element {
                                 r#type: "text", value: "{save_path}",
                                 oninput: move |ev| save_path.set(ev.value()),
                             }
-                            button { class: "px-4 py-2.5 rounded-lg border {cls.border} {cls.text_secondary} {cls.hover_bg} hover:{cls.text_primary} text-base transition-colors shrink-0",
+                            button { class: "px-4 py-2.5 rounded-lg border {cls.border} {cls.text_secondary} {cls.hover_bg} hover:{cls.text_primary} text-base transition-colors shrink-0 min-w-20",
                                 onclick: move |_| {
-                                    if let Some(dir) = rfd::FileDialog::new().set_directory(&save_path()).pick_folder()
+                                    if let Some(dir) = rfd::FileDialog::new().set_directory(save_path()).pick_folder()
                                     { save_path.set(dir.display().to_string()); }
                                 },
                                 "{lbl_browse}"
@@ -161,7 +160,7 @@ pub fn NewDownload() -> Element {
                     }
                     div { class: "space-y-2",
                         label { class: "block text-sm font-semibold {cls.text_muted}", "{lbl_threads}" }
-                        input { class: "w-24 px-4 py-2.5 rounded-lg {cls.input_bg} border {cls.input_border} {cls.text_primary} text-base outline-none transition-colors focus:border-[#6C5CE7]/50",
+                        input { class: "w-20 px-4 py-2.5 rounded-lg {cls.input_bg} border {cls.input_border} {cls.text_primary} text-base outline-none transition-colors focus:border-[#6C5CE7]/50",
                             r#type: "number", value: "{task_count}", min: "1", max: "64",
                             oninput: move |ev| task_count.set(ev.value()),
                         }
@@ -169,10 +168,10 @@ pub fn NewDownload() -> Element {
                 }
 
                 div { class: "flex items-center justify-end gap-3 px-8 py-5 border-t {cls.border} shrink-0",
-                    button { class: "px-5 py-2.5 rounded-lg text-base font-medium border {cls.border} {cls.text_secondary} {cls.hover_bg} hover:{cls.text_primary} transition-all duration-150",
+                    button { class: "px-5 py-2.5 rounded-lg text-base font-medium border {cls.border} {cls.text_secondary} {cls.hover_bg} hover:{cls.text_primary} transition-all duration-150 min-w-20",
                         onclick: close, "{lbl_cancel}"
                     }
-                    button { class: "px-6 py-2.5 rounded-lg text-base font-medium bg-[#6C5CE7] text-white hover:bg-[#7C6CF7] active:bg-[#5C4CD7] transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none",
+                    button { class: "px-6 py-2.5 rounded-lg text-base font-medium bg-[#6C5CE7] text-white hover:bg-[#7C6CF7] active:bg-[#5C4CD7] transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none min-w-20",
                         disabled: !can_start, onclick: start_download, "{lbl_start}"
                     }
                 }

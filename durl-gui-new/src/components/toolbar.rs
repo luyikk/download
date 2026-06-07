@@ -51,7 +51,7 @@ pub fn Toolbar(
                                   font-bold text-xs shadow-sm",
                         "D"
                     }
-                    span { class: "{cls.text_primary} font-semibold text-sm tracking-wide",
+                    span { class: "{cls.text_primary} font-bold font-semibold text-sm tracking-wide !px-1",
                         "DUrl"
                     }
                 }
@@ -61,7 +61,7 @@ pub fn Toolbar(
 
                 // New Download
                 button {
-                    class: "flex items-center gap-1 min-w-[50px] px-3 py-1.5 rounded-lg text-sm font-medium \
+                    class: "flex items-center !gap-1 min-w-[50px] !px-3 !py-1.5 rounded-lg text-sm font-medium \
                             border {cls.border} {cls.text_secondary} \
                             {cls.hover_bg} hover:text-green-500 \
                             transition-all duration-150 active:scale-95",
@@ -75,7 +75,7 @@ pub fn Toolbar(
 
                 // Pause
                 button {
-                    class: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg \
+                    class: "flex items-center !gap-1.5 !px-3 !py-1.5 rounded-lg \
                             {cls.text_secondary} text-sm font-medium \
                             {cls.hover_bg} hover:text-amber-500 \
                             transition-all duration-150 active:scale-95 \
@@ -88,7 +88,7 @@ pub fn Toolbar(
 
                 // Resume
                 button {
-                    class: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg \
+                    class: "flex items-center !gap-1.5 !px-3 !py-1.5 rounded-lg \
                             {cls.text_secondary} text-sm font-medium \
                             {cls.hover_bg} hover:text-emerald-500 \
                             transition-all duration-150 active:scale-95 \
@@ -101,7 +101,7 @@ pub fn Toolbar(
 
                 // Delete
                 button {
-                    class: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg \
+                    class: "flex items-center !gap-1.5 !px-3 !py-1.5 rounded-lg \
                             {cls.text_secondary} text-sm font-medium \
                             {cls.hover_bg} hover:text-red-400 \
                             transition-all duration-150 active:scale-95 \

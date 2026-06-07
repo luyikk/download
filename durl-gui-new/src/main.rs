@@ -31,10 +31,10 @@ const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 #[rustfmt::skip]
 enum Route {
     #[layout(Shell)]
-        #[route("/")]
-        Downloads {},
-        #[route("/settings")]
-        Settings {},
+    #[route("/")]
+    Downloads {},
+    #[route("/settings")]
+    Settings {},
 }
 
 /// Global tokio runtime — lazy-init, 2 workers.
@@ -42,7 +42,6 @@ pub fn rt() -> &'static tokio::runtime::Runtime {
     static RT: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
     RT.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(2)
             .enable_all()
             .build()
             .expect("failed to create tokio runtime")

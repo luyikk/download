@@ -72,7 +72,7 @@ pub fn Sidebar(
 
                         rsx! {
                             button {
-                                class: "flex items-center gap-3 px-3 py-2 rounded-r-lg \
+                                class: "flex items-center gap-3 !px-2 !py-2 rounded-r-lg \
                                         text-sm transition-all duration-150 {item_class}",
                                 onclick: move |_| filter.set(f),
 
@@ -99,7 +99,7 @@ pub fn Sidebar(
             // Settings link at bottom
             div { class: "border-t {cls.border}" }
             Link {
-                class: "flex items-center gap-3 px-3 py-3 mx-3 rounded-lg \
+                class: "flex items-center gap-3 !px-2 !py-2 rounded-lg \
                         text-sm transition-all duration-150 \
                         {cls.text_secondary} {cls.hover_bg} hover:{cls.text_primary}",
                 to: if on_settings_page { Route::Downloads {} } else { Route::Settings {} },

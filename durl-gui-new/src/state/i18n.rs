@@ -38,6 +38,7 @@ impl LangStrings {
     }
 
     /// Return display name for the language.
+    #[allow(dead_code)]
     pub fn display_name(&self) -> &str {
         self.get("meta.display_name")
     }

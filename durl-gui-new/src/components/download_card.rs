@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::components::icons::file_type_for;
 use crate::state::app_state::AppState;
 use crate::state::download_task::{
-    format_duration, format_size, format_speed, DownloadTask, TaskStatus,
+    format_duration, format_size, format_speed, short_sha256, DownloadTask, TaskStatus,
 };
 use crate::state::i18n::LangStrings;
 use crate::state::theme::ThemeClasses;
@@ -30,7 +30,7 @@ pub fn DownloadCard(
     };
 
     let border_class = if is_selected {
-        "border-[#6C5CE7]/50 ring-0.5 ring-[#6C5CE7]/20"
+        "border-1.5 border-[#6C5CE7]/50 ring-0.5 ring-[#6C5CE7]/20"
     } else {
         "border-transparent"
     };
@@ -69,11 +69,18 @@ pub fn DownloadCard(
         "card.completed_in",
         &[("time", &format_duration(task.elapsed.as_secs()))],
     );
+
+    let sha256_display = task
+        .sha256
+        .as_deref()
+        .map(|h| format!("sha256: {}", short_sha256(h)))
+        .unwrap_or_default();
+
     let task_id = task.id;
 
     rsx! {
         div {
-            class: "group flex items-stretch gap-0 mx-1 my-0.5 rounded-md \
+            class: "group flex items-stretch gap-0 !mx-1 !my-0.8 rounded-md \
                     {cls.card_bg} border {border_class} \
                     {cls.card_hover} hover:border-[#6C5CE7]/20 \
                     transition-all duration-200 cursor-pointer \
@@ -113,7 +120,7 @@ pub fn DownloadCard(
                         "{task.filename}"
                     }
                     div { class: "flex items-center gap-1 px-2 py-0.5 rounded-lg {status_class} \
-                                  text-xs font-medium shrink-0 translate-x-[-5px]",
+                                  text-xs font-medium shrink-0 !mx-2",
                         span { "{status_icon}" }
                         span { "{status_text}" }
                     }
@@ -150,11 +157,12 @@ pub fn DownloadCard(
                     }
                     if task.status == TaskStatus::Completed {
                         span { class: "{cls.text_muted}", "·" }
-                        span { class: "{cls.text_muted}", "{completed_fmt}" }
+                        span { class: "{cls.text_muted} !mr-2", "{completed_fmt}" }
+                        span { class: "{cls.text_muted}", "{sha256_display}" }
                     }
 
                     div { class: "flex-1" }
-                    span { class: "{cls.text_muted} font-mono text-xs tabular-nums translate-x-[-5px]",
+                    span { class: "{cls.text_muted} font-mono text-xs tabular-nums !mx-2",
                         "{task.progress:.1}%"
                     }
                 }

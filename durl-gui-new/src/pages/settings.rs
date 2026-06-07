@@ -64,7 +64,7 @@ pub fn Settings() -> Element {
         div { class: "flex flex-col h-full",
 
             // Header
-            div { class: "flex items-center justify-between px-4 py-3 \
+            div { class: "flex items-center justify-between \
                           {cls.border} border-b shrink-0",
                 div { class: "flex items-center gap-3",
                     button {
@@ -78,7 +78,7 @@ pub fn Settings() -> Element {
 
             // Settings form
             div { class: "flex-1 overflow-y-auto",
-                div { class: "max-w-lg mx-auto p-6 space-y-8",
+                div { class: "max-w-lg mx-auto !p-2 space-y-8",
 
                     // ── Save Directory ───────────────────────
                     section { class: "space-y-2",
@@ -101,7 +101,7 @@ pub fn Settings() -> Element {
                                         shrink-0 min-w-[60px]",
                                 onclick: move |_| {
                                     if let Some(dir) = rfd::FileDialog::new()
-                                        .set_directory(&save_path())
+                                        .set_directory(save_path())
                                         .pick_folder()
                                     {
                                         save_path.set(dir.display().to_string());

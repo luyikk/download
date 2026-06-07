@@ -50,7 +50,7 @@ pub fn DownloadList(
     }
 
     rsx! {
-        div { class: "flex-1 overflow-y-auto py-1",
+        div { class: "flex-1 overflow-y-auto !py-1",
             for task in filtered {
                 DownloadCard {
                     key: "{task.id}",

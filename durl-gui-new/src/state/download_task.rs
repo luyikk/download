@@ -9,6 +9,7 @@ use dioxus::prelude::info;
 use download_lib::DownloadFile;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -75,7 +76,7 @@ pub struct DownloadTask {
     pub progress: f64,
     pub status: TaskStatus,
     pub error_msg: Option<String>,
-    #[serde(skip, default = "zero_duration")]
+    #[serde(default = "zero_duration")]
     pub elapsed: Duration,
     #[serde(skip)]
     pub start_time_ms: u64,
@@ -91,6 +92,7 @@ fn zero_duration() -> Duration {
 // ── Runtime data helpers ──────────────────────────────────────
 
 impl DownloadTask {
+    #[allow(dead_code)]
     pub fn with_runtime<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&mut RuntimeData) -> R,
@@ -101,7 +103,7 @@ impl DownloadTask {
             download: None,
             sha256_rx: None,
         });
-        f(&mut *entry)
+        f(&mut entry)
     }
 
     /// Static helper to access runtime data by task id.
@@ -115,7 +117,7 @@ impl DownloadTask {
             download: None,
             sha256_rx: None,
         });
-        f(&mut *entry)
+        f(&mut entry)
     }
 
     pub fn remove_runtime(id: u64) {
@@ -157,47 +159,11 @@ pub fn format_duration(secs: u64) -> String {
     format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
 }
 
-pub fn extract_filename(url_or_path: &str) -> String {
-    let name = url_or_path.rsplit('/').next().unwrap_or(url_or_path);
-    let name = if let Some(idx) = name.find('?') {
-        &name[..idx]
-    } else {
-        name
-    };
-    sanitize_filename(&urlencoding_decode(name))
-}
-
-fn urlencoding_decode(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut i = 0;
-    let bytes = s.as_bytes();
-    while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(hex) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                result.push(hex as char);
-                i += 3;
-                continue;
-            }
-        }
-        if bytes[i] == b'+' {
-            result.push(' ');
-        } else {
-            result.push(bytes[i] as char);
-        }
-        i += 1;
-    }
-    result
-}
-
-fn sanitize_filename(name: &str) -> String {
-    name.chars()
-        .map(|c| match c {
-            '<' | '>' | ':' | '"' | '|' | '?' | '*' | '\x00'..='\x1f' => '_',
-            _ => c,
-        })
-        .collect::<String>()
-        .trim_end_matches(|c: char| c == '.' || c == ' ')
-        .to_string()
+pub fn extract_filename(path: &str) -> String {
+    PathBuf::from(path)
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.to_string())
 }
 
 // ── Persistence ───────────────────────────────────────────────
@@ -229,6 +195,16 @@ impl DownloadTask {
             .for_each(|t| t.status = TaskStatus::Paused);
 
         Ok(tasks)
+    }
+}
+
+/// Abbreviate a SHA256 hex string to `xxxxxxx...xxxxxxx` (first 7 + "..." + last 7).
+/// Returns the original string if it's too short to abbreviate.
+pub fn short_sha256(hash: &str) -> String {
+    if hash.len() <= 17 {
+        hash.to_string()
+    } else {
+        format!("{}...{}", &hash[..7], &hash[hash.len() - 7..])
     }
 }
 

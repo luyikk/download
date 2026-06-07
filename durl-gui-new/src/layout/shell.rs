@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::components::log_panel::LogPanel;
 use crate::components::sidebar::Sidebar;
@@ -106,6 +106,10 @@ pub fn Shell() -> Element {
                             t.filename = fname.clone();
                             t.file_path = real;
                             t.file_size = size;
+                            t.start_time_ms = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis() as u64;
                             t.status = TaskStatus::Downloading;
                         }
                         dirty.set(true);

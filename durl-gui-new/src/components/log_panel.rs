@@ -68,7 +68,7 @@ pub fn LogPanel(logs: Signal<Vec<LogEntry>>, collapsed: Signal<bool>) -> Element
     rsx! {
         div {
             class: "shrink-0 border-t {cls.border} {cls.panel_bg} flex flex-col",
-            style: "height: 120px",
+            style: "height: 150px",
 
             div {
                 class: "flex items-center justify-between px-4 py-1.5 \
@@ -92,7 +92,7 @@ pub fn LogPanel(logs: Signal<Vec<LogEntry>>, collapsed: Signal<bool>) -> Element
             }
 
             div {
-                class: "flex-1 overflow-y-auto px-4 py-2 font-mono text-xs leading-relaxed",
+                class: "flex-1 overflow-y-auto !px-2 !py-1 font-mono text-xs leading-relaxed",
                 if entries.is_empty() {
                     div { class: "{cls.text_muted} italic",
                         "{empty_label}"

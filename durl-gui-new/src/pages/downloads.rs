@@ -52,7 +52,7 @@ pub fn Downloads() -> Element {
             h1 { class: "flex items-center justify-start text-sm font-semibold {cls.text_primary} h-6 translate-x-2",
                 "{header_title}"
             }
-            span { class: "text-xs {cls.text_muted}", "{header_sub}" }
+            span { class: "text-xs {cls.text_muted} !px-2", "{header_sub}" }
         }
 
         DownloadList {

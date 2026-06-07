@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use dioxus::prelude::*;
 
 use crate::state::app_state::AppState;
@@ -41,6 +43,14 @@ pub fn ContextMenu() -> Element {
         true,
         false,
     ));
+    if task.sha256.is_some() {
+        items.push((
+            lang.get("context_menu.copy_sha256").into(),
+            "copy_sha256".into(),
+            true,
+            false,
+        ));
+    }
     items.push(("".into(), "".into(), true, true));
 
     if task.status == TaskStatus::Downloading {
@@ -87,13 +97,6 @@ pub fn ContextMenu() -> Element {
         false,
     ));
 
-    let id = task.id;
-    let file_path = task.file_path.clone();
-    let url = task.url.clone();
-    let save_dir = task.save_dir.clone();
-    let task_count = task.task_count;
-    let cookies = task.cookies.clone();
-
     rsx! {
         div {
             class: "fixed inset-0 z-[60]",
@@ -117,25 +120,17 @@ pub fn ContextMenu() -> Element {
                             let label = label.clone();
                             let key = key.clone();
                             let enabled = *enabled;
-                            let id = id;
-                            let file_path = file_path.clone();
-                            let url = url.clone();
-                            let save_dir = save_dir.clone();
-                            let task_count = task_count;
-                            let cookies = cookies.clone();
+                            let task = task.clone();
 
                             rsx! {
                                 button {
                                     class: "w-full text-left px-3 py-1.5 text-sm \
                                             {cls.text_secondary} hover:{cls.text_primary} \
                                             hover:bg-[#6C5CE7]/10 transition-colors \
-                                            disabled:opacity-30 disabled:pointer-events-none",
+                                            disabled:opacity-30 disabled:pointer-events-none translate-x-[5px]",
                                     disabled: !enabled,
                                     onclick: move |_| {
-                                        handle_action(
-                                            &key, id, &file_path, &url, &save_dir, task_count, &cookies,
-                                            &mut state,
-                                        );
+                                        handle_action(&key, &task, &mut state);
                                     },
                                     "{label}"
                                 }
@@ -148,18 +143,41 @@ pub fn ContextMenu() -> Element {
     }
 }
 
-fn handle_action(
-    key: &str,
-    id: u64,
-    file_path: &str,
-    url: &str,
-    save_dir: &str,
-    task_count: u64,
-    cookies: &Option<String>,
-    state: &mut AppState,
-) {
+fn handle_action(key: &str, task: &DownloadTask, state: &mut AppState) {
+    let id = task.id;
+    let file_path = &task.file_path;
+    let url = &task.url;
+    let save_dir = &task.save_dir;
+    let task_count = task.task_count;
+    let cookies = &task.cookies;
+    let filename = &task.filename;
+    let sha256 = &task.sha256;
+
     match key {
         "copy_url" => {
+            let url = url.to_string();
+            std::thread::spawn(move || {
+                if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                    let _ = clipboard.set_text(&url);
+                }
+            });
+            (state.logs)
+                .write()
+                .push(LogEntry::app(format!("Copied URL for task #{}", id)));
+            (state.context_menu).set(None);
+        }
+        "copy_sha256" => {
+            if let Some(ref hash) = sha256 {
+                let hash = hash.clone();
+                std::thread::spawn(move || {
+                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                        let _ = clipboard.set_text(&hash);
+                    }
+                });
+                (state.logs)
+                    .write()
+                    .push(LogEntry::app(format!("Copied SHA256 for task #{}", id)));
+            }
             (state.context_menu).set(None);
         }
         "pause" => {
@@ -224,6 +242,54 @@ fn handle_action(
             (state.context_menu).set(None);
         }
         "redownload" => {
+            // Delete the old file if it exists
+            if !file_path.is_empty() {
+                let _ = std::fs::remove_file(file_path);
+            }
+            // Remove old runtime
+            DownloadTask::remove_runtime(id);
+            // Reset task state
+            {
+                let mut tlist = state.tasks.write();
+                if let Some(t) = tlist.iter_mut().find(|t| t.id == id) {
+                    t.status = TaskStatus::Starting;
+                    t.speed = 0;
+                    t.downloaded = 0;
+                    t.progress = 0.0;
+                    t.file_size = 0;
+                    t.error_msg = None;
+                    t.sha256 = None;
+                    t.file_path = String::new();
+                }
+            }
+            // Spawn new download
+            let custom_name = if filename.is_empty() {
+                None
+            } else {
+                Some(filename.to_string())
+            };
+            let u = url.to_string();
+            let s = save_dir.to_string();
+            let ck = cookies.clone();
+            let (tx, rx) = std::sync::mpsc::channel();
+            crate::rt().spawn(async move {
+                let result = download_lib::DownloadFile::start_download(
+                    u,
+                    std::path::PathBuf::from(s),
+                    task_count,
+                    1024 * 1024,
+                    custom_name,
+                    ck,
+                )
+                .await;
+                let _ = tx.send(result);
+            });
+            DownloadTask::with_runtime_id(id, |rt| {
+                rt.receiver = Some(Mutex::new(rx));
+            });
+            (state.logs)
+                .write()
+                .push(LogEntry::app(format!("Re-downloading task #{}", id)));
             (state.context_menu).set(None);
         }
         "delete" => {
