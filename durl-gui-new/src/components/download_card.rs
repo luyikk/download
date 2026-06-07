@@ -49,17 +49,19 @@ pub fn DownloadCard(
 
     let status_text = lang.get(status_key);
 
-    let (progress_color, pulse) = if task.status == TaskStatus::Completed {
-        ("bg-emerald-500", "")
+    let progress_style = if task.status == TaskStatus::Completed {
+        "background: #10b981"
     } else if task.status == TaskStatus::Error {
-        ("bg-red-500", "")
+        "background: #ef4444"
     } else if task.status == TaskStatus::Paused {
-        ("bg-amber-500", "")
+        "background: #f59e0b"
     } else {
-        (
-            "bg-gradient-to-r from-blue-500 to-purple-500",
-            "animate-shimmer",
-        )
+        "background: linear-gradient(to right, #3b82f6, #a855f7)"
+    };
+    let pulse_class = if task.status == TaskStatus::Downloading {
+        "animate-shimmer"
+    } else {
+        ""
     };
 
     let left_label = lang.get("card.left");
@@ -120,9 +122,8 @@ pub fn DownloadCard(
                 div { class: "mb-1.5",
                     div { class: "w-full h-1.5 bg-[#1e2430]/40 rounded-full overflow-hidden",
                         div {
-                            class: "h-full rounded-full {progress_color} {pulse} \
-                                    transition-all duration-500 ease-out",
-                            style: "width: {task.progress}%",
+                            class: "h-full rounded-full {pulse_class} transition-all duration-500 ease-out",
+                            style: "{progress_style}; width: {task.progress}%",
                         }
                     }
                 }
