@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 
-use crate::state::task::{Filter, MockTask};
+use crate::state::download_task::{DownloadTask, Filter};
 
 /// Shared application state, provided via context at the root.
 #[derive(Clone, Copy)]
 pub struct AppState {
-    pub tasks: Signal<Vec<MockTask>>,
+    pub tasks: Signal<Vec<DownloadTask>>,
     pub filter: Signal<Filter>,
     pub selected_id: Signal<Option<u64>>,
     pub logs: Signal<Vec<String>>,

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
+use crate::state::download_task::Filter;
 use crate::state::i18n::LangStrings;
-use crate::state::task::Filter;
 use crate::state::theme::ThemeClasses;
 use crate::Route;
 

@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
 use crate::state::app_state::AppState;
+use crate::state::download_task::format_speed;
 use crate::state::i18n::LangStrings;
-use crate::state::task::format_speed;
 use crate::state::theme::ThemeClasses;
 use crate::Route;
 

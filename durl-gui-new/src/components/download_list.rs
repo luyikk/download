@@ -1,23 +1,24 @@
 use dioxus::prelude::*;
 
 use crate::components::download_card::DownloadCard;
+use crate::state::download_task::{DownloadTask, Filter, TaskStatus};
 use crate::state::i18n::LangStrings;
-use crate::state::task::{Filter, MockTask, TaskStatus};
 use crate::state::theme::ThemeClasses;
 
 /// List container for download cards with filtering.
 #[component]
 pub fn DownloadList(
-    tasks: Signal<Vec<MockTask>>,
+    tasks: Signal<Vec<DownloadTask>>,
     filter: Signal<Filter>,
     selected_id: Signal<Option<u64>>,
 ) -> Element {
-    let cls_ctx = use_context::<Signal<ThemeClasses>>();
-    let cls = cls_ctx();
-    let lang_ctx = use_context::<Signal<LangStrings>>();
-    let lang = lang_ctx();
+    let cls = use_context::<Signal<ThemeClasses>>();
+    let cls = cls();
+    let lang = use_context::<Signal<LangStrings>>();
+    let lang = lang();
 
-    let filtered: Vec<MockTask> = tasks()
+    let task_list = tasks.read();
+    let filtered: Vec<&DownloadTask> = task_list
         .iter()
         .filter(|t| match filter() {
             Filter::All => true,
@@ -27,7 +28,6 @@ pub fn DownloadList(
             ),
             Filter::Completed => matches!(t.status, TaskStatus::Completed | TaskStatus::Error),
         })
-        .cloned()
         .collect();
 
     if filtered.is_empty() {
@@ -42,12 +42,8 @@ pub fn DownloadList(
         return rsx! {
             div { class: "flex-1 flex flex-col items-center justify-center",
                 span { class: "text-5xl mb-4 opacity-40", "{icon}" }
-                p { class: "{cls.text_secondary} text-sm",
-                    "{empty_msg}"
-                }
-                p { class: "{cls.text_muted} text-xs mt-1",
-                    "{empty_hint}"
-                }
+                p { class: "{cls.text_secondary} text-sm", "{empty_msg}" }
+                p { class: "{cls.text_muted} text-xs mt-1", "{empty_hint}" }
             }
         };
     }

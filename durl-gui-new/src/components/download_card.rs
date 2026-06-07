@@ -2,25 +2,32 @@ use dioxus::prelude::*;
 
 use crate::components::icons::file_type_for;
 use crate::state::app_state::AppState;
+use crate::state::download_task::{
+    format_duration, format_size, format_speed, DownloadTask, TaskStatus,
+};
 use crate::state::i18n::LangStrings;
-use crate::state::task::{format_duration, format_size, format_speed, MockTask, TaskStatus};
 use crate::state::theme::ThemeClasses;
 
 /// A single download task card.
 #[component]
-pub fn DownloadCard(task: MockTask, is_selected: bool, on_select: EventHandler<u64>) -> Element {
-    let cls_ctx = use_context::<Signal<ThemeClasses>>();
-    let cls = cls_ctx();
-    let lang_ctx = use_context::<Signal<LangStrings>>();
-    let lang = lang_ctx();
-    let file_type = file_type_for(&task.filename);
+pub fn DownloadCard(
+    task: DownloadTask,
+    is_selected: bool,
+    on_select: EventHandler<u64>,
+) -> Element {
+    let cls = use_context::<Signal<ThemeClasses>>();
+    let cls = cls();
+    let lang = use_context::<Signal<LangStrings>>();
+    let lang = lang();
     let mut state = use_context::<AppState>();
-    let task_id = task.id;
+    let file_type = file_type_for(&task.filename);
 
-    let remaining = task
-        .eta_secs()
-        .map(|s| format_duration(s))
-        .unwrap_or_else(|| "—".into());
+    let remaining = if task.speed > 0 && task.file_size > task.downloaded {
+        let secs = (task.file_size - task.downloaded) / task.speed;
+        format_duration(secs)
+    } else {
+        "—".into()
+    };
 
     let border_class = if is_selected {
         "border-[#6C5CE7]/50 ring-0.5 ring-[#6C5CE7]/20"
@@ -58,8 +65,9 @@ pub fn DownloadCard(task: MockTask, is_selected: bool, on_select: EventHandler<u
     let left_label = lang.get("card.left");
     let completed_fmt = lang.get_fmt(
         "card.completed_in",
-        &[("time", &format_duration(task.elapsed_secs))],
+        &[("time", &format_duration(task.elapsed.as_secs()))],
     );
+    let task_id = task.id;
 
     rsx! {
         div {
@@ -72,9 +80,7 @@ pub fn DownloadCard(task: MockTask, is_selected: bool, on_select: EventHandler<u
             oncontextmenu: move |ev| {
                 ev.prevent_default();
                 let coords = ev.data().client_coordinates();
-                let x = coords.x;
-                let y = coords.y;
-                (state.context_menu).set(Some((task_id, x, y)));
+                (state.context_menu).set(Some((task_id, coords.x, coords.y)));
             },
 
             // Status indicator dot
@@ -100,7 +106,6 @@ pub fn DownloadCard(task: MockTask, is_selected: bool, on_select: EventHandler<u
 
             // Main content
             div { class: "flex-1 min-w-0 py-2.5 pr-4",
-                // Row 1: filename + status badge
                 div { class: "flex items-center justify-between gap-3 mb-1.5",
                     span { class: "{cls.text_primary} text-sm font-medium truncate",
                         "{task.filename}"
@@ -112,7 +117,6 @@ pub fn DownloadCard(task: MockTask, is_selected: bool, on_select: EventHandler<u
                     }
                 }
 
-                // Row 2: progress bar
                 div { class: "mb-1.5",
                     div { class: "w-full h-1.5 bg-[#1e2430]/40 rounded-full overflow-hidden",
                         div {
@@ -123,14 +127,13 @@ pub fn DownloadCard(task: MockTask, is_selected: bool, on_select: EventHandler<u
                     }
                 }
 
-                // Row 3: stats
                 div { class: "flex items-center gap-2 text-xs flex-wrap",
                     span { class: "{cls.text_secondary}",
                         "{format_size(task.downloaded)} / {format_size(task.file_size)}"
                     }
                     if task.status == TaskStatus::Downloading {
                         span { class: "{cls.text_muted}", "·" }
-                        span { class: "text-blue-400 font-medium ",
+                        span { class: "text-blue-400 font-medium",
                             "{format_speed(task.speed)}"
                         }
                     }
@@ -146,13 +149,10 @@ pub fn DownloadCard(task: MockTask, is_selected: bool, on_select: EventHandler<u
                     }
                     if task.status == TaskStatus::Completed {
                         span { class: "{cls.text_muted}", "·" }
-                        span { class: "{cls.text_muted}",
-                            "{completed_fmt}"
-                        }
+                        span { class: "{cls.text_muted}", "{completed_fmt}" }
                     }
 
                     div { class: "flex-1" }
-
                     span { class: "{cls.text_muted} font-mono text-xs tabular-nums translate-x-[-5px]",
                         "{task.progress:.1}%"
                     }

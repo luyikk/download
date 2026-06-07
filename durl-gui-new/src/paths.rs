@@ -13,3 +13,8 @@ pub fn app_config_dir() -> PathBuf {
 pub fn user_config_path() -> PathBuf {
     app_config_dir().join("user.toml")
 }
+
+/// Path to `durl-gui-tasks.json` in the app config directory.
+pub fn tasks_config_path() -> PathBuf {
+    app_config_dir().join("durl-gui-tasks.json")
+}
