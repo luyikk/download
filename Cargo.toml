@@ -1,9 +1,15 @@
 [workspace]
-members = ["download-lib", "libdurl", "durl", "durl-gui"]
+members = [
+    "download-lib",
+    "durl",
+    "durl-gui",
+    "durl-gui-new",
+    "libdurl",
+    "durl-gui-new",
+]
 resolver = "2"
 
 [profile.release]
-codegen-units = 1
 lto = "fat"
+codegen-units = 1
 panic = "abort"
-
