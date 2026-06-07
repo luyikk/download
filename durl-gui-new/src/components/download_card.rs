@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::components::icons::file_type_for;
+use crate::state::app_state::AppState;
 use crate::state::i18n::LangStrings;
 use crate::state::task::{format_duration, format_size, format_speed, MockTask, TaskStatus};
 use crate::state::theme::ThemeClasses;
@@ -13,6 +14,8 @@ pub fn DownloadCard(task: MockTask, is_selected: bool, on_select: EventHandler<u
     let lang_ctx = use_context::<Signal<LangStrings>>();
     let lang = lang_ctx();
     let file_type = file_type_for(&task.filename);
+    let mut state = use_context::<AppState>();
+    let task_id = task.id;
 
     let remaining = task
         .eta_secs()
@@ -65,7 +68,14 @@ pub fn DownloadCard(task: MockTask, is_selected: bool, on_select: EventHandler<u
                     {cls.card_hover} hover:border-[#6C5CE7]/20 \
                     transition-all duration-200 cursor-pointer \
                     animate-slide-up",
-            onclick: move |_| on_select(task.id),
+            onclick: move |_| on_select(task_id),
+            oncontextmenu: move |ev| {
+                ev.prevent_default();
+                let coords = ev.data().client_coordinates();
+                let x = coords.x;
+                let y = coords.y;
+                (state.context_menu).set(Some((task_id, x, y)));
+            },
 
             // Status indicator dot
             div { class: "flex items-center justify-center w-10 shrink-0",

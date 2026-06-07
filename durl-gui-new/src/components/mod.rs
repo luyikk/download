@@ -1,3 +1,4 @@
+pub mod context_menu;
 pub mod download_card;
 pub mod download_list;
 pub mod icons;

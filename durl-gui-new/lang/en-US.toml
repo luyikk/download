@@ -59,6 +59,16 @@ theme_label = "Theme"
 theme_note = "Use the ☀/🌙 button in the toolbar to switch themes."
 save = "Save Settings"
 
+[context_menu]
+pause = "Pause"
+resume = "Resume"
+open_file = "Open File"
+open_dir = "Open Folder"
+copy_url = "Copy URL"
+copy_sha256 = "Copy SHA256"
+redownload = "Re-download"
+delete = "Delete"
+
 [dialog_new]
 title = "New Download"
 url_label = "URL"

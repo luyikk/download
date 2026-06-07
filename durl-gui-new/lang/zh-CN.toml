@@ -59,6 +59,16 @@ theme_label = "主题"
 theme_note = "使用工具栏中的 ☀/🌙 按钮切换主题。"
 save = "保存设置"
 
+[context_menu]
+pause = "暂停"
+resume = "继续"
+open_file = "打开文件"
+open_dir = "打开所在目录"
+copy_url = "复制下载链接"
+copy_sha256 = "复制 SHA256"
+redownload = "重新下载"
+delete = "删除"
+
 [dialog_new]
 title = "新建下载"
 url_label = "下载链接"

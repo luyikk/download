@@ -7,6 +7,7 @@ mod pages;
 mod paths;
 mod state;
 
+use components::context_menu::ContextMenu;
 use layout::shell::Shell;
 use pages::downloads::Downloads;
 use pages::new_download::NewDownload;
@@ -63,6 +64,7 @@ fn App() -> Element {
     let filter = use_signal(|| Filter::All);
     let selected_id = use_signal(|| None::<u64>);
     let show_new_dialog = use_signal(|| false);
+    let context_menu = use_signal(|| None::<(u64, f64, f64)>);
     let logs = use_signal(|| {
         vec![
             "[12:30:42]  DUrl v0.1.0 started".to_string(),
@@ -82,6 +84,7 @@ fn App() -> Element {
         selected_id,
         logs,
         show_new_dialog,
+        context_menu,
     });
 
     // ── Config context (for settings page) ───────────────────
@@ -92,6 +95,9 @@ fn App() -> Element {
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }
         Router::<Route> {}
+
+        // ── Context menu (rendered above everything) ─────────
+        ContextMenu {}
 
         // ── New Download dialog (modal overlay) ──────────────
         if show_new_dialog() {
