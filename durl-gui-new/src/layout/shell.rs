@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::components::log_panel::LogPanel;
@@ -48,11 +49,14 @@ pub fn Shell() -> Element {
         // Check SHA256 rx (separate call)
         let mut sha_hash: Option<String> = None;
         DownloadTask::with_runtime_id(task.id, |rt| {
-            if let Some(ref rx) = rt.sha256_rx {
-                if let Ok(hash) = rx.try_recv() {
-                    sha_hash = Some(hash);
-                    rt.sha256_rx = None;
-                }
+            // Use as_ref().and_then() to drop MutexGuard before assigning rt.sha256_rx
+            let hash = rt
+                .sha256_rx
+                .as_ref()
+                .and_then(|rx| rx.lock().unwrap().try_recv().ok());
+            if let Some(h) = hash {
+                sha_hash = Some(h);
+                rt.sha256_rx = None;
             }
         });
         if let Some(hash) = sha_hash {
@@ -67,37 +71,41 @@ pub fn Shell() -> Element {
 
         // Check download receiver + poll progress
         DownloadTask::with_runtime_id(task.id, |rt| {
-            if let Some(ref rx) = rt.receiver {
-                if let Ok(result) = rx.try_recv() {
-                    match result {
-                        Ok(df) => {
-                            let real = df.get_real_file_path();
-                            let fname = crate::state::download_task::extract_filename(&real);
-                            let size = df.size();
-                            let mut tlist = tasks_sig.write();
-                            if let Some(t) = tlist.iter_mut().find(|t| t.id == task.id) {
-                                t.filename = fname.clone();
-                                t.file_path = real;
-                                t.file_size = size;
-                                t.status = TaskStatus::Downloading;
-                            }
-                            dirty.set(true);
-                            logs.write()
-                                .push(format!("[{}] Downloading: {}", now_str(), fname));
-                            rt.download = Some(df);
+            // Extract result first so MutexGuard is dropped before assigning rt.receiver
+            let recv_result = rt
+                .receiver
+                .as_ref()
+                .and_then(|rx| rx.lock().unwrap().try_recv().ok());
+
+            if let Some(result) = recv_result {
+                match result {
+                    Ok(df) => {
+                        let real = df.get_real_file_path();
+                        let fname = crate::state::download_task::extract_filename(&real);
+                        let size = df.size();
+                        let mut tlist = tasks_sig.write();
+                        if let Some(t) = tlist.iter_mut().find(|t| t.id == task.id) {
+                            t.filename = fname.clone();
+                            t.file_path = real;
+                            t.file_size = size;
+                            t.status = TaskStatus::Downloading;
                         }
-                        Err(e) => {
-                            let mut tlist = tasks_sig.write();
-                            if let Some(t) = tlist.iter_mut().find(|t| t.id == task.id) {
-                                t.status = TaskStatus::Error;
-                                t.error_msg = Some(e.to_string());
-                            }
-                            dirty.set(true);
-                            logs.write().push(format!("[{}] Failed: {}", now_str(), e));
-                        }
+                        dirty.set(true);
+                        logs.write()
+                            .push(format!("[{}] Downloading: {}", now_str(), fname));
+                        rt.download = Some(df);
                     }
-                    rt.receiver = None;
+                    Err(e) => {
+                        let mut tlist = tasks_sig.write();
+                        if let Some(t) = tlist.iter_mut().find(|t| t.id == task.id) {
+                            t.status = TaskStatus::Error;
+                            t.error_msg = Some(e.to_string());
+                        }
+                        dirty.set(true);
+                        logs.write().push(format!("[{}] Failed: {}", now_str(), e));
+                    }
                 }
+                rt.receiver = None;
             }
 
             // Poll active download
@@ -168,7 +176,7 @@ pub fn Shell() -> Element {
             }
         });
         DownloadTask::with_runtime_id(tid, |rt_data| {
-            rt_data.sha256_rx = Some(rx);
+            rt_data.sha256_rx = Some(Mutex::new(rx));
         });
     }
 
@@ -237,7 +245,7 @@ pub fn Shell() -> Element {
                         df.restart();
                     } else {
                         let (tx, rx) = std::sync::mpsc::channel();
-                        rt.receiver = Some(rx);
+                        rt.receiver = Some(Mutex::new(rx));
                         let u = t.url.clone();
                         let s = t.save_dir.clone();
                         let tc = t.task_count;

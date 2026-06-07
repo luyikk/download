@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use std::sync::Mutex;
 
 use crate::state::app_state::AppState;
 use crate::state::download_task::{DownloadTask, TaskStatus};
@@ -189,7 +190,7 @@ fn handle_action(
                     df.restart();
                 } else {
                     let (tx, rx) = std::sync::mpsc::channel();
-                    rt.receiver = Some(rx);
+
                     let u = url.to_string();
                     let s = save_dir.to_string();
                     let ck = cookies.clone();

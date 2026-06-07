@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::state::app_state::AppState;
@@ -64,7 +65,7 @@ pub fn NewDownload() -> Element {
         let (tx, rx) = std::sync::mpsc::channel();
 
         DownloadTask::with_runtime_id(id, |rt| {
-            rt.receiver = Some(rx);
+            rt.receiver = Some(Mutex::new(rx));
         });
 
         let u2 = u.clone();

@@ -4,10 +4,10 @@
 //! for use in Dioxus signals.
 
 use anyhow::Result;
+use dashmap::DashMap;
 use dioxus::prelude::info;
 use download_lib::DownloadFile;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::sync::mpsc;
 use std::sync::Mutex;
@@ -45,17 +45,19 @@ pub enum Filter {
 }
 
 /// Runtime-only data that can't be cloned / put in signals.
+/// Wraps `mpsc::Receiver` in `Mutex` so that `RuntimeData` is `Sync` (required by `DashMap`).
 pub struct RuntimeData {
-    pub receiver: Option<mpsc::Receiver<Result<DownloadFile, download_lib::DownloadError>>>,
+    pub receiver: Option<Mutex<mpsc::Receiver<Result<DownloadFile, download_lib::DownloadError>>>>,
     pub download: Option<DownloadFile>,
-    pub sha256_rx: Option<mpsc::Receiver<String>>,
+    pub sha256_rx: Option<Mutex<mpsc::Receiver<String>>>,
 }
 
 /// Global storage for runtime-only task data, keyed by task id.
-static RUNTIME: std::sync::LazyLock<Mutex<HashMap<u64, RuntimeData>>> =
-    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+/// Uses `DashMap` for lock-free concurrent access — no global Mutex needed.
+static RUNTIME: std::sync::LazyLock<DashMap<u64, RuntimeData>> =
+    std::sync::LazyLock::new(DashMap::new);
 
-fn runtime_map() -> &'static Mutex<HashMap<u64, RuntimeData>> {
+fn runtime_map() -> &'static DashMap<u64, RuntimeData> {
     &RUNTIME
 }
 
@@ -94,13 +96,12 @@ impl DownloadTask {
         F: FnOnce(&mut RuntimeData) -> R,
     {
         let map = runtime_map();
-        let mut guard = map.lock().unwrap();
-        let rt = guard.entry(self.id).or_insert_with(|| RuntimeData {
+        let mut entry = map.entry(self.id).or_insert_with(|| RuntimeData {
             receiver: None,
             download: None,
             sha256_rx: None,
         });
-        f(rt)
+        f(&mut *entry)
     }
 
     /// Static helper to access runtime data by task id.
@@ -109,18 +110,16 @@ impl DownloadTask {
         F: FnOnce(&mut RuntimeData) -> R,
     {
         let map = runtime_map();
-        let mut guard = map.lock().unwrap();
-        let rt = guard.entry(id).or_insert_with(|| RuntimeData {
+        let mut entry = map.entry(id).or_insert_with(|| RuntimeData {
             receiver: None,
             download: None,
             sha256_rx: None,
         });
-        f(rt)
+        f(&mut *entry)
     }
 
     pub fn remove_runtime(id: u64) {
-        let map = runtime_map();
-        map.lock().unwrap().remove(&id);
+        runtime_map().remove(&id);
     }
 }
 

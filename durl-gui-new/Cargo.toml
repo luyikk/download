@@ -20,6 +20,7 @@ open = "5"
 ntex = { version = "3", features = ["tokio"] }
 anyhow = "1"
 dashmap = "6"
+any-mpsc = "0.3"
 
 [features]
 default = ["desktop"]
