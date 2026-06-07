@@ -1,0 +1,72 @@
+# 中文语言包
+
+[meta]
+display_name = "中文"
+
+[sidebar]
+downloads = "下载管理"
+all = "全部"
+downloading = "下载中"
+completed = "已完成"
+settings = "设置"
+
+[toolbar]
+new = "新建"
+pause = "暂停"
+resume = "继续"
+delete = "删除"
+active = "{count} 个活跃"
+
+[status]
+starting = "准备中"
+downloading = "下载中"
+paused = "已暂停"
+completed = "已完成"
+error = "错误"
+
+[card]
+completed_in = "已完成，耗时 {time}"
+left = "剩余"
+
+[list]
+empty_all = "暂无下载任务"
+empty_downloading = "没有正在下载的任务"
+empty_completed = "没有已完成的任务"
+empty_hint = "点击 '+ 新建' 开始下载"
+
+[log]
+title = "日志 ({count})"
+clear = "清空"
+empty = "暂无日志..."
+
+[page_downloads]
+all = "全部下载"
+downloading = "下载中"
+completed = "已完成"
+all_sub = "共 {count} 个任务"
+downloading_sub = "{count} 个活跃"
+completed_sub = "已完成 {count} 个"
+
+[page_settings]
+title = "设置"
+back = "← 返回"
+save_dir = "默认保存目录"
+save_dir_placeholder = "选择目录..."
+browse = "浏览"
+concurrency = "默认并发数"
+language_label = "语言"
+theme_label = "主题"
+theme_note = "使用工具栏中的 ☀/🌙 按钮切换主题。"
+save = "保存设置"
+
+[dialog_new]
+title = "新建下载"
+url_label = "下载链接"
+url_placeholder = "https://example.com/file.zip"
+save_dir = "保存到"
+filename_label = "文件名"
+filename_placeholder = "留空自动识别"
+concurrency_label = "并发数"
+cancel = "取消"
+start = "开始下载"
+browse = "浏览"

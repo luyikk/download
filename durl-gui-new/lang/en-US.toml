@@ -1,0 +1,72 @@
+# English Language Pack
+
+[meta]
+display_name = "English"
+
+[sidebar]
+downloads = "Downloads"
+all = "All"
+downloading = "Downloading"
+completed = "Completed"
+settings = "Settings"
+
+[toolbar]
+new = "New"
+pause = "Pause"
+resume = "Resume"
+delete = "Delete"
+active = "{count} active"
+
+[status]
+starting = "Starting"
+downloading = "Downloading"
+paused = "Paused"
+completed = "Completed"
+error = "Error"
+
+[card]
+completed_in = "Completed in {time}"
+left = "left"
+
+[list]
+empty_all = "No downloads yet"
+empty_downloading = "No active downloads"
+empty_completed = "No completed downloads"
+empty_hint = "Click '+ New' to start a download"
+
+[log]
+title = "Log ({count})"
+clear = "Clear"
+empty = "No log entries yet..."
+
+[page_downloads]
+all = "All Downloads"
+downloading = "Downloading"
+completed = "Completed"
+all_sub = "{count} tasks"
+downloading_sub = "{count} active"
+completed_sub = "{count} completed"
+
+[page_settings]
+title = "Settings"
+back = "← Back"
+save_dir = "Default Save Directory"
+save_dir_placeholder = "Select a directory..."
+browse = "Browse"
+concurrency = "Default Concurrency"
+language_label = "Language"
+theme_label = "Theme"
+theme_note = "Use the ☀/🌙 button in the toolbar to switch themes."
+save = "Save Settings"
+
+[dialog_new]
+title = "New Download"
+url_label = "URL"
+url_placeholder = "https://example.com/file.zip"
+save_dir = "Save to"
+filename_label = "Filename"
+filename_placeholder = "Auto-detect from URL"
+concurrency_label = "Threads"
+cancel = "Cancel"
+start = "Start Download"
+browse = "Browse"

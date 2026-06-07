@@ -1,0 +1,15 @@
+use std::path::PathBuf;
+
+/// Returns the application config directory.
+/// On Windows: `%APPDATA%/durl-gui-new/`
+pub fn app_config_dir() -> PathBuf {
+    let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+    let dir = base.join("durl-gui-new");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+/// Path to `user.toml` in the app config directory.
+pub fn user_config_path() -> PathBuf {
+    app_config_dir().join("user.toml")
+}
