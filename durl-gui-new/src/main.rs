@@ -53,6 +53,7 @@ fn main() {
     let _ = rt();
 
     dioxus::logger::init(Level::INFO).unwrap();
+    #[cfg(feature = "desktop")]
     LaunchBuilder::desktop()
         .with_cfg(dioxus::desktop::Config::new().with_menu(None))
         .launch(App);
@@ -61,6 +62,8 @@ fn main() {
 /// Root component.
 #[component]
 fn App() -> Element {
+    info!("start");
+
     let cfg = use_signal(UserConfig::load);
 
     let initial_theme = if cfg().theme == "light" { LIGHT } else { DARK };
@@ -72,12 +75,14 @@ fn App() -> Element {
     use_context_provider(|| lang);
 
     // Load persisted tasks
-    let tasks = use_signal(DownloadTask::load_all);
+    let tasks = use_loader(|| async move { dioxus::Ok(DownloadTask::load_all()?) })?;
+
     let filter = use_signal(|| Filter::All);
     let selected_id = use_signal(|| None::<u64>);
     let show_new_dialog = use_signal(|| false);
     let context_menu = use_signal(|| None::<(u64, f64, f64)>);
     let logs = use_signal(|| vec!["[system]  DUrl v0.1.0 started".to_string()]);
+    let dirty = use_signal(|| false);
 
     use_context_provider(|| AppState {
         tasks,
@@ -86,6 +91,7 @@ fn App() -> Element {
         logs,
         show_new_dialog,
         context_menu,
+        dirty,
     });
 
     use_context_provider(|| cfg);

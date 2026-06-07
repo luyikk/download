@@ -7,7 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dioxus = { version = "0.7.1", features = ["router"] }
+dioxus = { version = "0.7", features = ["fullstack","router"] }
 download-lib = { path = "../download-lib" }
 tokio = { version = "1", features = ["full"] }
 toml = "1"
@@ -18,9 +18,10 @@ dirs = "5"
 rfd = "0.14"
 open = "5"
 ntex = { version = "3", features = ["tokio"] }
+anyhow = "1"
+dashmap = "6"
 
 [features]
 default = ["desktop"]
-web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
-mobile = ["dioxus/mobile"]
+

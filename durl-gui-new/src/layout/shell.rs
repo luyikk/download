@@ -23,6 +23,7 @@ pub fn Shell() -> Element {
     let mut sel_id = state.selected_id;
     let mut logs = state.logs;
     let filter = state.filter;
+    let mut dirty = state.dirty;
 
     // ── Periodic update tick ───────────────────────────────
     let mut tick = use_signal(|| 0u64);
@@ -58,6 +59,7 @@ pub fn Shell() -> Element {
             let mut tlist = tasks_sig.write();
             if let Some(t) = tlist.iter_mut().find(|t| t.id == task.id) {
                 t.sha256 = Some(hash.clone());
+                dirty.set(true);
             }
             logs.write()
                 .push(format!("[{}] SHA256: {}", now_str(), hash));
@@ -79,6 +81,7 @@ pub fn Shell() -> Element {
                                 t.file_size = size;
                                 t.status = TaskStatus::Downloading;
                             }
+                            dirty.set(true);
                             logs.write()
                                 .push(format!("[{}] Downloading: {}", now_str(), fname));
                             rt.download = Some(df);
@@ -89,6 +92,7 @@ pub fn Shell() -> Element {
                                 t.status = TaskStatus::Error;
                                 t.error_msg = Some(e.to_string());
                             }
+                            dirty.set(true);
                             logs.write().push(format!("[{}] Failed: {}", now_str(), e));
                         }
                     }
@@ -122,6 +126,7 @@ pub fn Shell() -> Element {
                         if status.is_error() {
                             t.status = TaskStatus::Error;
                             t.error_msg = status.get_error().map(|e| e.to_string());
+                            dirty.set(true);
                             logs.write().push(format!(
                                 "[{}] Error: {}",
                                 now_str(),
@@ -132,6 +137,7 @@ pub fn Shell() -> Element {
                             t.progress = 100.0;
                             t.downloaded = t.file_size;
                             t.speed = 0;
+                            dirty.set(true);
                             t.file_path = df.get_real_file_path();
                             logs.write().push(format!(
                                 "[{}] Completed: {}",
@@ -212,6 +218,7 @@ pub fn Shell() -> Element {
             });
             logs.write()
                 .push(format!("[{}]  Paused task #{}", now_str(), id));
+            dirty.set(true);
         }
     };
 
@@ -251,6 +258,7 @@ pub fn Shell() -> Element {
                 });
                 logs.write()
                     .push(format!("[{}]  Resumed task #{}", now_str(), id));
+                dirty.set(true);
             }
         }
     };
@@ -267,8 +275,17 @@ pub fn Shell() -> Element {
             sel_id.set(None);
             logs.write()
                 .push(format!("[{}]  Deleted task #{}", now_str(), id));
+            dirty.set(true);
         }
     };
+
+    // ── Auto-save dirty tasks ───────────────────────────────
+    if dirty() {
+        debug!("saved tasks");
+        let task_list = tasks_sig.read();
+        DownloadTask::save_all(&task_list)?;
+        dirty.set(false);
+    }
 
     rsx! {
         div { class: "flex flex-col h-screen {cls.page_bg} overflow-hidden",

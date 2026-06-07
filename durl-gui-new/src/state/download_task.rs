@@ -3,6 +3,8 @@
 //! separately in `RuntimeData` so that `DownloadTask` remains `Clone + PartialEq`
 //! for use in Dioxus signals.
 
+use anyhow::Result;
+use dioxus::prelude::info;
 use download_lib::DownloadFile;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -202,44 +204,37 @@ fn sanitize_filename(name: &str) -> String {
 // ── Persistence ───────────────────────────────────────────────
 
 impl DownloadTask {
-    /// Serialize to JSON, persisting only active tasks.
-    pub fn save_all(tasks: &[DownloadTask]) {
+    /// Serialize all tasks to JSON.
+    pub fn save_all(tasks: &[DownloadTask]) -> Result<()> {
         let path = crate::paths::tasks_config_path();
-        let filter: Vec<&DownloadTask> = tasks
-            .iter()
-            .filter(|t| {
-                matches!(
-                    t.status,
-                    TaskStatus::Downloading | TaskStatus::Paused | TaskStatus::Starting
-                )
-            })
-            .collect();
-        if let Ok(json) = serde_json::to_string_pretty(&filter) {
-            let _ = std::fs::write(&path, json);
-        }
+        info!("saved tasks to {}", path.display());
+        let filter: Vec<&DownloadTask> = tasks.iter().collect();
+        let toml = serde_json::to_string_pretty(&filter)?;
+        std::fs::write(&path, toml)?;
+
+        Ok(())
     }
 
     /// Load persisted tasks. Restored as Paused.
-    pub fn load_all() -> Vec<DownloadTask> {
+    pub fn load_all() -> Result<Vec<DownloadTask>> {
         let path = crate::paths::tasks_config_path();
-        if let Ok(data) = std::fs::read_to_string(&path) {
-            if let Ok(mut tasks) = serde_json::from_str::<Vec<DownloadTask>>(&data) {
-                for t in &mut tasks {
-                    t.status = TaskStatus::Paused;
-                    t.speed = 0;
-                    t.downloaded = 0;
-                    t.progress = 0.0;
-                    t.start_time_ms = 0;
-                }
-                return tasks;
-            }
+        info!("loaded tasks from {}", path.display());
+        if !std::fs::exists(&path)? {
+            return Ok(vec![]);
         }
-        vec![]
+        let data = std::fs::read_to_string(&path)?;
+        let mut tasks = serde_json::from_str::<Vec<DownloadTask>>(&data)?;
+        tasks
+            .iter_mut()
+            .filter(|t| t.status == TaskStatus::Starting || t.status == TaskStatus::Downloading)
+            .for_each(|t| t.status = TaskStatus::Paused);
+
+        Ok(tasks)
     }
 }
 
 /// Compute SHA256 of a file.
-pub fn compute_sha256(path: &str) -> Result<String, std::io::Error> {
+pub fn compute_sha256(path: &str) -> Result<String> {
     use sha2::{Digest, Sha256};
     let mut file = std::fs::File::open(path)?;
     let mut hasher = Sha256::new();
