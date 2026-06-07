@@ -7,6 +7,7 @@ use crate::state::app_state::AppState;
 use crate::state::config::UserConfig;
 use crate::state::download_task::{extract_filename, DownloadTask, TaskStatus};
 use crate::state::i18n::LangStrings;
+use crate::state::log_entry::LogEntry;
 use crate::state::theme::ThemeClasses;
 
 /// New download dialog — modal overlay.
@@ -107,7 +108,7 @@ pub fn NewDownload() -> Element {
         state.tasks.write().push(task);
         (state.logs)
             .write()
-            .push(format!("[{}]  Starting: {}", now_str(), display_name));
+            .push(LogEntry::app(format!("Starting: {}", display_name)));
         state.show_new_dialog.set(false);
     };
 
@@ -178,18 +179,4 @@ pub fn NewDownload() -> Element {
             }
         }
     }
-}
-
-fn now_str() -> String {
-    use std::time::SystemTime;
-    let dur = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = dur.as_secs();
-    format!(
-        "{:02}:{:02}:{:02}",
-        (secs / 3600) % 24,
-        (secs / 60) % 60,
-        secs % 60
-    )
 }

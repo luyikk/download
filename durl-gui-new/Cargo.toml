@@ -21,6 +21,7 @@ ntex = { version = "3", features = ["tokio"] }
 anyhow = "1"
 dashmap = "6"
 any-mpsc = "0.3"
+log = "0.4"
 
 [features]
 default = ["desktop"]

@@ -6,8 +6,10 @@ use crate::components::log_panel::LogPanel;
 use crate::components::sidebar::Sidebar;
 use crate::components::theme_toggle::ThemeToggle;
 use crate::components::toolbar::Toolbar;
+use crate::gui_logger::LogBuffer;
 use crate::state::app_state::AppState;
 use crate::state::download_task::{compute_sha256, DownloadTask, TaskStatus};
+use crate::state::log_entry::LogEntry;
 use crate::state::theme::ThemeClasses;
 use crate::Route;
 
@@ -25,6 +27,7 @@ pub fn Shell() -> Element {
     let mut logs = state.logs;
     let filter = state.filter;
     let mut dirty = state.dirty;
+    let log_buf = use_context::<LogBuffer>();
 
     // ── Periodic update tick ───────────────────────────────
     let mut tick = use_signal(|| 0u64);
@@ -35,6 +38,21 @@ pub fn Shell() -> Element {
         }
     });
     let _ = tick(); // force re-render on tick
+
+    // ── Drain library logs ────────────────────────────────
+    {
+        let entries = crate::gui_logger::drain_buffer(&log_buf);
+        if !entries.is_empty() {
+            let mut log_list = logs.write();
+            for e in entries {
+                log_list.push(e);
+            }
+            // Keep bounded
+            if log_list.len() > 5000 {
+                log_list.drain(0..1000);
+            }
+        }
+    }
 
     // ── Update tasks ───────────────────────────────────────
     let tasks = tasks_sig.read();
@@ -66,7 +84,7 @@ pub fn Shell() -> Element {
                 dirty.set(true);
             }
             logs.write()
-                .push(format!("[{}] SHA256: {}", now_str(), hash));
+                .push(LogEntry::app(format!("SHA256: {}", hash)));
         }
 
         // Check download receiver + poll progress
@@ -92,7 +110,7 @@ pub fn Shell() -> Element {
                         }
                         dirty.set(true);
                         logs.write()
-                            .push(format!("[{}] Downloading: {}", now_str(), fname));
+                            .push(LogEntry::app(format!("Downloading: {}", fname)));
                         rt.download = Some(df);
                     }
                     Err(e) => {
@@ -102,7 +120,8 @@ pub fn Shell() -> Element {
                             t.error_msg = Some(e.to_string());
                         }
                         dirty.set(true);
-                        logs.write().push(format!("[{}] Failed: {}", now_str(), e));
+                        logs.write()
+                            .push(LogEntry::app_error(format!("Failed: {}", e)));
                     }
                 }
                 rt.receiver = None;
@@ -135,11 +154,10 @@ pub fn Shell() -> Element {
                             t.status = TaskStatus::Error;
                             t.error_msg = status.get_error().map(|e| e.to_string());
                             dirty.set(true);
-                            logs.write().push(format!(
-                                "[{}] Error: {}",
-                                now_str(),
+                            logs.write().push(LogEntry::app_error(format!(
+                                "Error: {}",
                                 t.error_msg.as_deref().unwrap_or("unknown")
-                            ));
+                            )));
                         } else {
                             t.status = TaskStatus::Completed;
                             t.progress = 100.0;
@@ -147,17 +165,13 @@ pub fn Shell() -> Element {
                             t.speed = 0;
                             dirty.set(true);
                             t.file_path = df.get_real_file_path();
-                            logs.write().push(format!(
-                                "[{}] Completed: {}",
-                                now_str(),
-                                t.file_path
-                            ));
+                            logs.write()
+                                .push(LogEntry::app(format!("Completed: {}", t.file_path)));
 
                             // Queue SHA256 computation (must be done OUTSIDE the runtime lock)
                             if t.sha256.is_none() {
                                 sha256_queue.push((t.id, t.file_path.clone()));
-                                logs.write()
-                                    .push(format!("[{}] Computing SHA256...", now_str()));
+                                logs.write().push(LogEntry::app("Computing SHA256..."));
                             }
                         }
                     }
@@ -225,7 +239,7 @@ pub fn Shell() -> Element {
                 }
             });
             logs.write()
-                .push(format!("[{}]  Paused task #{}", now_str(), id));
+                .push(LogEntry::app(format!("Paused task #{}", id)));
             dirty.set(true);
         }
     };
@@ -265,7 +279,7 @@ pub fn Shell() -> Element {
                     }
                 });
                 logs.write()
-                    .push(format!("[{}]  Resumed task #{}", now_str(), id));
+                    .push(LogEntry::app(format!("Resumed task #{}", id)));
                 dirty.set(true);
             }
         }
@@ -282,7 +296,7 @@ pub fn Shell() -> Element {
             tasks_sig.write().retain(|t| t.id != id);
             sel_id.set(None);
             logs.write()
-                .push(format!("[{}]  Deleted task #{}", now_str(), id));
+                .push(LogEntry::app(format!("Deleted task #{}", id)));
             dirty.set(true);
         }
     };
@@ -320,18 +334,4 @@ pub fn Shell() -> Element {
             LogPanel { logs, collapsed: log_collapsed }
         }
     }
-}
-
-fn now_str() -> String {
-    use std::time::SystemTime;
-    let dur = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = dur.as_secs();
-    format!(
-        "{:02}:{:02}:{:02}",
-        (secs / 3600) % 24,
-        (secs / 60) % 60,
-        secs % 60
-    )
 }

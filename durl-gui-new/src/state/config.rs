@@ -11,6 +11,8 @@ pub struct UserConfig {
     pub default_save_path: String,
     #[serde(default = "default_task_count")]
     pub default_task_count: u64,
+    #[serde(default = "default_log_level")]
+    pub log_level: String,
 }
 
 fn default_language() -> String {
@@ -35,6 +37,10 @@ fn default_task_count() -> u64 {
     8
 }
 
+fn default_log_level() -> String {
+    "Info".into()
+}
+
 impl Default for UserConfig {
     fn default() -> Self {
         Self {
@@ -42,6 +48,7 @@ impl Default for UserConfig {
             theme: default_theme(),
             default_save_path: default_save_path(),
             default_task_count: default_task_count(),
+            log_level: default_log_level(),
         }
     }
 }
@@ -64,6 +71,19 @@ impl UserConfig {
     pub fn save(&self) {
         if let Ok(s) = toml::to_string_pretty(self) {
             let _ = std::fs::write(crate::paths::user_config_path(), s);
+        }
+    }
+
+    /// Parse the log_level string into a `log::LevelFilter`.
+    pub fn log_level_filter(&self) -> log::LevelFilter {
+        match self.log_level.to_ascii_lowercase().as_str() {
+            "off" => log::LevelFilter::Off,
+            "error" => log::LevelFilter::Error,
+            "warn" => log::LevelFilter::Warn,
+            "info" => log::LevelFilter::Info,
+            "debug" => log::LevelFilter::Debug,
+            "trace" => log::LevelFilter::Trace,
+            _ => log::LevelFilter::Info,
         }
     }
 }

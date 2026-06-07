@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 
 use crate::state::config::UserConfig;
 use crate::state::i18n::LangStrings;
+use crate::state::log_entry::LOG_LEVELS;
 use crate::state::theme::{ThemeClasses, DARK};
 use crate::Route;
 
@@ -20,6 +21,7 @@ pub fn Settings() -> Element {
     // ── Local copies for form editing ────────────────────────
     let mut save_path = use_signal(|| cfg().default_save_path.clone());
     let mut task_count = use_signal(|| cfg().default_task_count.to_string());
+    let mut log_level = use_signal(|| cfg().log_level.clone());
     let current_lang = lang.lang_id.clone();
     let current_theme = cfg().theme.clone();
 
@@ -36,6 +38,9 @@ pub fn Settings() -> Element {
         if let Ok(n) = task_count().parse::<u64>() {
             cfg.write().default_task_count = n;
         }
+        cfg.write().log_level = log_level();
+        // Apply log level change at runtime
+        crate::gui_logger::set_log_level(cfg.read().log_level_filter());
         cfg.read().save();
     };
 
@@ -50,6 +55,7 @@ pub fn Settings() -> Element {
     let lbl_placeholder = lang.get("page_settings.save_dir_placeholder").to_string();
     let lbl_browse = lang.get("page_settings.browse").to_string();
     let lbl_concurrency = lang.get("page_settings.concurrency").to_string();
+    let lbl_log_level = lang.get("page_settings.log_level").to_string();
     let lbl_language = lang.get("page_settings.language_label").to_string();
     let lbl_theme = lang.get("page_settings.theme_label").to_string();
     let lbl_save = lang.get("page_settings.save").to_string();
@@ -122,6 +128,26 @@ pub fn Settings() -> Element {
                             oninput: move |ev| task_count.set(ev.value()),
                         }
                         p { class: "text-xs {cls.text_muted}", "Range: 1 – 64" }
+                    }
+
+                    // ── Log Level ───────────────────────────
+                    section { class: "space-y-2",
+                        label { class: "block text-sm font-semibold {cls.text_muted} uppercase tracking-wider",
+                            "{lbl_log_level}"
+                        }
+                        select {
+                            class: "w-48 px-3 py-2 rounded-lg {cls.input_bg} border {cls.input_border} \
+                                    {cls.text_primary} text-sm outline-none transition-colors \
+                                    focus:border-[#6C5CE7]/50 cursor-pointer",
+                            onchange: move |ev| log_level.set(ev.value()),
+                            for level in LOG_LEVELS.iter() {
+                                option {
+                                    value: "{level}",
+                                    selected: log_level() == *level,
+                                    "{level}"
+                                }
+                            }
+                        }
                     }
 
                     // ── Language ─────────────────────────────

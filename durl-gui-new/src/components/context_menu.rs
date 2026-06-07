@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
-use std::sync::Mutex;
 
 use crate::state::app_state::AppState;
 use crate::state::download_task::{DownloadTask, TaskStatus};
 use crate::state::i18n::LangStrings;
+use crate::state::log_entry::LogEntry;
 use crate::state::theme::ThemeClasses;
 
 /// Right-click context menu for download cards.
@@ -176,7 +176,7 @@ fn handle_action(
             });
             (state.logs)
                 .write()
-                .push(format!("[{}]  Paused task #{}", now_str(), id));
+                .push(LogEntry::app(format!("Paused task #{}", id)));
             (state.context_menu).set(None);
         }
         "resume" => {
@@ -189,7 +189,7 @@ fn handle_action(
                 if let Some(ref df) = rt.download {
                     df.restart();
                 } else {
-                    let (tx, rx) = std::sync::mpsc::channel();
+                    let (tx, _rx) = std::sync::mpsc::channel();
 
                     let u = url.to_string();
                     let s = save_dir.to_string();
@@ -210,7 +210,7 @@ fn handle_action(
             });
             (state.logs)
                 .write()
-                .push(format!("[{}]  Resumed task #{}", now_str(), id));
+                .push(LogEntry::app(format!("Resumed task #{}", id)));
             (state.context_menu).set(None);
         }
         "open_file" => {
@@ -237,23 +237,9 @@ fn handle_action(
             (state.selected_id).set(None);
             (state.logs)
                 .write()
-                .push(format!("[{}]  Deleted task #{}", now_str(), id));
+                .push(LogEntry::app(format!("Deleted task #{}", id)));
             (state.context_menu).set(None);
         }
         _ => {}
     }
-}
-
-fn now_str() -> String {
-    use std::time::SystemTime;
-    let dur = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = dur.as_secs();
-    format!(
-        "{:02}:{:02}:{:02}",
-        (secs / 3600) % 24,
-        (secs / 60) % 60,
-        secs % 60
-    )
 }

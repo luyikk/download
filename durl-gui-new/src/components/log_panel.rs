@@ -1,11 +1,24 @@
-use dioxus::prelude::*;
-
 use crate::state::i18n::LangStrings;
+use crate::state::log_entry::LogEntry;
 use crate::state::theme::ThemeClasses;
+use dioxus::prelude::*;
+use log::Level;
 
-/// Bottom log panel, collapsible.
+/// Tailwind CSS color class for a log level tag.
+fn level_color(level: Level) -> &'static str {
+    match level {
+        Level::Trace => "text-slate-500",
+        Level::Debug => "text-slate-400",
+        Level::Info => "text-sky-400",
+        Level::Warn => "text-amber-400",
+        Level::Error => "text-red-400",
+    }
+}
+
+/// Bottom log panel, collapsible. Shows structured `LogEntry` items with
+/// color-coded level tags.
 #[component]
-pub fn LogPanel(logs: Signal<Vec<String>>, collapsed: Signal<bool>) -> Element {
+pub fn LogPanel(logs: Signal<Vec<LogEntry>>, collapsed: Signal<bool>) -> Element {
     let cls_ctx = use_context::<Signal<ThemeClasses>>();
     let cls = cls_ctx();
     let lang_ctx = use_context::<Signal<LangStrings>>();
@@ -30,6 +43,27 @@ pub fn LogPanel(logs: Signal<Vec<String>>, collapsed: Signal<bool>) -> Element {
             }
         };
     }
+
+    // Pre-compute display strings so rsx! stays simple
+    let entries: Vec<_> = logs()
+        .iter()
+        .map(|e| {
+            let show_level = e.level != Level::Info;
+            let level_tag = if show_level {
+                format!("[{:<5}]", e.level.to_string())
+            } else {
+                String::new()
+            };
+            let color = level_color(e.level);
+            (
+                e.time.clone(),
+                show_level,
+                level_tag,
+                color,
+                e.message.clone(),
+            )
+        })
+        .collect();
 
     rsx! {
         div {
@@ -57,14 +91,22 @@ pub fn LogPanel(logs: Signal<Vec<String>>, collapsed: Signal<bool>) -> Element {
                 }
             }
 
-            div { class: "flex-1 overflow-y-auto px-4 py-2 font-mono text-xs leading-relaxed",
-                if logs().is_empty() {
+            div {
+                class: "flex-1 overflow-y-auto px-4 py-2 font-mono text-xs leading-relaxed",
+                if entries.is_empty() {
                     div { class: "{cls.text_muted} italic",
                         "{empty_label}"
                     }
                 } else {
-                    for entry in logs() {
-                        div { class: "{cls.text_muted} py-px", "{entry}" }
+                    for (time, show_level, level_tag, color, msg) in entries {
+                        div { class: "{cls.text_muted} py-px whitespace-nowrap",
+                            span { class: "text-slate-600", "[{time}]" }
+                            if show_level {
+                                span { class: "text-slate-600", " " }
+                                span { class: "font-medium {color}", "{level_tag}" }
+                            }
+                            span { " {msg}" }
+                        }
                     }
                 }
             }

@@ -3,12 +3,14 @@ use dioxus::prelude::*;
 use std::sync::OnceLock;
 
 mod components;
+mod gui_logger;
 mod layout;
 mod pages;
 mod paths;
 mod state;
 
 use components::context_menu::ContextMenu;
+use gui_logger::LogBuffer;
 use layout::shell::Shell;
 use pages::downloads::Downloads;
 use pages::new_download::NewDownload;
@@ -17,6 +19,7 @@ use state::app_state::AppState;
 use state::config::UserConfig;
 use state::download_task::{DownloadTask, Filter};
 use state::i18n::LangStrings;
+use state::log_entry::LogEntry;
 use state::theme::{DARK, LIGHT};
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
@@ -66,6 +69,10 @@ fn App() -> Element {
 
     let cfg = use_signal(UserConfig::load);
 
+    // Initialize the GUI logger (channel-based, non-blocking)
+    let log_buf: LogBuffer = use_signal(|| gui_logger::init_gui_logger(cfg().log_level_filter()))();
+    use_context_provider(|| log_buf);
+
     let initial_theme = if cfg().theme == "light" { LIGHT } else { DARK };
     let theme = use_signal(|| initial_theme);
     use_context_provider(|| theme);
@@ -81,7 +88,8 @@ fn App() -> Element {
     let selected_id = use_signal(|| None::<u64>);
     let show_new_dialog = use_signal(|| false);
     let context_menu = use_signal(|| None::<(u64, f64, f64)>);
-    let logs = use_signal(|| vec!["[system]  DUrl v0.1.0 started".to_string()]);
+    // Initial log entry (app-level, no level tag)
+    let logs = use_signal(|| vec![LogEntry::app("DUrl v0.1.0 started")]);
     let dirty = use_signal(|| false);
 
     use_context_provider(|| AppState {
