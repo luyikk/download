@@ -1,9 +1,12 @@
+#![windows_subsystem = "windows"]
+
 use dioxus::logger::tracing::Level;
 use dioxus::prelude::*;
 use std::sync::{Mutex, OnceLock};
 
 mod browser_server;
 mod components;
+mod ext_install;
 mod gui_logger;
 mod layout;
 mod pages;
@@ -12,6 +15,7 @@ mod state;
 
 use browser_server::{start_browser_server, BrowserDownloadReq};
 use components::context_menu::ContextMenu;
+use components::ext_install_dialog::ExtInstallDialog;
 use gui_logger::LogBuffer;
 use layout::shell::Shell;
 use pages::downloads::Downloads;
@@ -24,9 +28,8 @@ use state::i18n::LangStrings;
 use state::log_entry::LogEntry;
 use state::theme::{DARK, LIGHT};
 
-const FAVICON: Asset = asset!("/assets/favicon.ico");
-const MAIN_CSS: Asset = asset!("/assets/main.css");
-const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
+const MAIN_CSS: &str = include_str!("../assets/main.css");
+const TAILWIND_CSS: &str = include_str!("../assets/tailwind.css");
 
 /// Application routes.
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -69,7 +72,18 @@ fn main() {
     dioxus::logger::init(Level::INFO).unwrap();
     #[cfg(feature = "desktop")]
     LaunchBuilder::desktop()
-        .with_cfg(dioxus::desktop::Config::new().with_menu(None))
+        .with_cfg(
+            dioxus::desktop::Config::new().with_menu(None).with_window(
+                dioxus::desktop::WindowBuilder::new()
+                    .with_title("DUrl Download Manager")
+                    .with_window_icon(Some(
+                        dioxus::desktop::icon_from_memory(include_bytes!(
+                            "../assets/favicon_16.png"
+                        ))
+                        .unwrap(),
+                    )),
+            ),
+        )
         .launch(App);
 }
 
@@ -106,6 +120,9 @@ fn App() -> Element {
     let selected_id = use_signal(|| None::<u64>);
     let show_new_dialog = use_signal(|| false);
     let browser_req = use_signal(|| None::<BrowserDownloadReq>);
+    let show_ext_install = use_signal(|| false);
+    let ext_install_path = use_signal(String::new);
+    let ext_browser_url = use_signal(String::new);
     let context_menu = use_signal(|| None::<(u64, f64, f64)>);
     // Initial log entry (app-level, no level tag)
     let logs = use_signal(|| vec![LogEntry::app("DUrl v0.1.0 started")]);
@@ -118,6 +135,9 @@ fn App() -> Element {
         logs,
         show_new_dialog,
         browser_req,
+        show_ext_install,
+        ext_install_path,
+        ext_browser_url,
         context_menu,
         dirty,
     });
@@ -125,9 +145,8 @@ fn App() -> Element {
     use_context_provider(|| cfg);
 
     rsx! {
-        document::Link { rel: "icon", href: FAVICON }
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
-        document::Link { rel: "stylesheet", href: TAILWIND_CSS }
+        style { {MAIN_CSS} }
+        style { {TAILWIND_CSS} }
 
         div {
             class: "h-screen w-screen overflow-hidden {theme().page_bg}",
@@ -137,6 +156,9 @@ fn App() -> Element {
             ContextMenu {}
             if show_new_dialog() {
                 NewDownload {}
+            }
+            if show_ext_install() {
+                ExtInstallDialog {}
             }
         }
     }

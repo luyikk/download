@@ -1,5 +1,7 @@
 use dioxus::prelude::*;
 
+use crate::ext_install::{extract_extension_files, launch_browser, BrowserKind};
+use crate::state::app_state::AppState;
 use crate::state::config::UserConfig;
 use crate::state::i18n::LangStrings;
 use crate::state::log_entry::LOG_LEVELS;
@@ -16,6 +18,7 @@ pub fn Settings() -> Element {
     let mut cfg = use_context::<Signal<UserConfig>>();
     let mut theme = use_context::<Signal<ThemeClasses>>();
     let mut lang_sig = use_context::<Signal<LangStrings>>();
+    let mut state = use_context::<AppState>();
     let nav = navigator();
 
     // ── Local copies for form editing ────────────────────────
@@ -59,6 +62,13 @@ pub fn Settings() -> Element {
     let lbl_language = lang.get("page_settings.language_label").to_string();
     let lbl_theme = lang.get("page_settings.theme_label").to_string();
     let lbl_save = lang.get("page_settings.save").to_string();
+    let lbl_browser_ext = lang.get("dialog_settings.browser_ext").to_string();
+    let lbl_install_chrome = lang
+        .get("dialog_settings.browser_ext_install_chrome")
+        .to_string();
+    let lbl_install_edge = lang
+        .get("dialog_settings.browser_ext_install_edge")
+        .to_string();
 
     rsx! {
         div { class: "flex flex-col h-full",
@@ -81,7 +91,7 @@ pub fn Settings() -> Element {
                 div { class: "max-w-lg mx-auto !p-2 space-y-8",
 
                     // ── Save Directory ───────────────────────
-                    section { class: "space-y-2",
+                    section { class: "space-y-2 !py-1",
                         label { class: "block text-sm font-semibold {cls.text_muted} uppercase tracking-wider",
                             "{lbl_save_dir}"
                         }
@@ -113,7 +123,7 @@ pub fn Settings() -> Element {
                     }
 
                     // ── Concurrency ──────────────────────────
-                    section { class: "space-y-2",
+                    section { class: "space-y-2 !py-1",
                         label { class: "block text-sm font-semibold {cls.text_muted} uppercase tracking-wider",
                             "{lbl_concurrency}"
                         }
@@ -131,7 +141,7 @@ pub fn Settings() -> Element {
                     }
 
                     // ── Log Level ───────────────────────────
-                    section { class: "space-y-2",
+                    section { class: "space-y-2 !py-1",
                         label { class: "block text-sm font-semibold {cls.text_muted} uppercase tracking-wider",
                             "{lbl_log_level}"
                         }
@@ -151,7 +161,7 @@ pub fn Settings() -> Element {
                     }
 
                     // ── Language ─────────────────────────────
-                    section { class: "space-y-2",
+                    section { class: "space-y-2 !py-1",
                         label { class: "block text-sm font-semibold {cls.text_muted} uppercase tracking-wider",
                             "{lbl_language}"
                         }
@@ -174,7 +184,7 @@ pub fn Settings() -> Element {
                     }
 
                     // ── Theme ────────────────────────────────
-                    section { class: "space-y-2",
+                    section { class: "space-y-2 !py-1",
                         label { class: "block text-sm font-semibold {cls.text_muted} uppercase tracking-wider",
                             "{lbl_theme}"
                         }
@@ -219,10 +229,81 @@ pub fn Settings() -> Element {
                         }
                     }
 
+                    // ── Browser Extension ───────────────────
+                    section { class: "space-y-2 !mt-3 border-t {cls.border} !py-1",
+                        label { class: "!py-2 block text-sm font-semibold {cls.text_muted} uppercase tracking-wider",
+                            "{lbl_browser_ext}"
+                        }
+                        div { class: "flex gap-3",
+                            {
+                                let lbl_chrome = lbl_install_chrome.clone();
+                                rsx! {
+                                    button {
+                                        class: "!px-3 !py-1 rounded-lg text-sm font-medium \
+                                                bg-[#6C5CE7] text-white \
+                                                hover:bg-[#7C6CF7] active:bg-[#5C4CD7] \
+                                                transition-all duration-150",
+                                        onclick: move |_| {
+                                            match extract_extension_files() {
+                                                Ok(path) => {
+                                                    state.ext_install_path.set(
+                                                        path.display().to_string(),
+                                                    );
+                                                    state.ext_browser_url.set(
+                                                        "chrome://extensions".into(),
+                                                    );
+                                                    state.show_ext_install.set(true);
+                                                    launch_browser(BrowserKind::Chrome);
+                                                }
+                                                Err(e) => {
+                                                    log::error!(
+                                                        "[ext] Failed to extract extension: {e}"
+                                                    );
+                                                }
+                                            }
+                                        },
+                                        "{lbl_chrome}"
+                                    }
+                                }
+                            }
+                            {
+                                let lbl_edge = lbl_install_edge.clone();
+                                rsx! {
+                                    button {
+                                        class: "!px-3 !py-1 rounded-lg text-sm font-medium \
+                                                bg-[#0078D4] text-white \
+                                                hover:bg-[#1088E4] active:bg-[#0068C4] \
+                                                transition-all duration-150",
+                                        onclick: move |_| {
+                                            match extract_extension_files() {
+                                                Ok(path) => {
+                                                    state.ext_install_path.set(
+                                                        path.display().to_string(),
+                                                    );
+                                                    state.ext_browser_url.set(
+                                                        "edge://extensions".into(),
+                                                    );
+                                                    state.show_ext_install.set(true);
+                                                    launch_browser(BrowserKind::Edge);
+                                                }
+                                                Err(e) => {
+                                                    log::error!(
+                                                        "[ext] Failed to extract extension: {e}"
+                                                    );
+                                                }
+                                            }
+                                        },
+                                        "{lbl_edge}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // ── Save ────────────────────────────────
                     div { class: "pt-4 border-t {cls.border}",
                         button {
-                            class: "px-6 py-2 rounded-lg text-sm font-medium \
+                            class: "!px-6 !py-1 !mt-2 rounded-lg text-sm font-medium \
                                     bg-[#6C5CE7] text-white \
                                     hover:bg-[#7C6CF7] active:bg-[#5C4CD7] \
                                     transition-all duration-150 min-w-[80px] !px-2",

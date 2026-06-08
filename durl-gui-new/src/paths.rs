@@ -18,3 +18,10 @@ pub fn user_config_path() -> PathBuf {
 pub fn tasks_config_path() -> PathBuf {
     app_config_dir().join("durl-gui-tasks.json")
 }
+
+/// Directory where the browser extension files are extracted to.
+pub fn extension_dir() -> PathBuf {
+    let dir = app_config_dir().join("extension");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}

@@ -28,3 +28,6 @@ arboard = "3"
 default = ["desktop"]
 desktop = ["dioxus/desktop"]
 
+[build-dependencies]
+winres = "0.1"
+ico = "0.5"

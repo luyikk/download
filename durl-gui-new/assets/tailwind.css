@@ -281,6 +281,12 @@
   .\!mt-1 {
     margin-top: calc(var(--spacing) * 1) !important;
   }
+  .\!mt-2 {
+    margin-top: calc(var(--spacing) * 2) !important;
+  }
+  .\!mt-3 {
+    margin-top: calc(var(--spacing) * 3) !important;
+  }
   .mt-1 {
     margin-top: calc(var(--spacing) * 1);
   }
@@ -376,6 +382,9 @@
   }
   .w-\[30px\] {
     width: 30px;
+  }
+  .w-\[560px\] {
+    width: 560px;
   }
   .w-\[780px\] {
     width: 780px;
@@ -495,11 +504,25 @@
   .gap-6 {
     gap: calc(var(--spacing) * 6);
   }
+  .space-y-1\.5 {
+    :where(& > :not(:last-child)) {
+      --tw-space-y-reverse: 0;
+      margin-block-start: calc(calc(var(--spacing) * 1.5) * var(--tw-space-y-reverse));
+      margin-block-end: calc(calc(var(--spacing) * 1.5) * calc(1 - var(--tw-space-y-reverse)));
+    }
+  }
   .space-y-2 {
     :where(& > :not(:last-child)) {
       --tw-space-y-reverse: 0;
       margin-block-start: calc(calc(var(--spacing) * 2) * var(--tw-space-y-reverse));
       margin-block-end: calc(calc(var(--spacing) * 2) * calc(1 - var(--tw-space-y-reverse)));
+    }
+  }
+  .space-y-4 {
+    :where(& > :not(:last-child)) {
+      --tw-space-y-reverse: 0;
+      margin-block-start: calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));
+      margin-block-end: calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-y-reverse)));
     }
   }
   .space-y-6 {
@@ -619,6 +642,9 @@
   }
   .bg-\[\#7C6CF7\] {
     background-color: #7C6CF7;
+  }
+  .bg-\[\#0078D4\] {
+    background-color: #0078D4;
   }
   .bg-\[\#11141c\] {
     background-color: #11141c;
@@ -848,6 +874,9 @@
   .py-px {
     padding-block: 1px;
   }
+  .pt-2 {
+    padding-top: calc(var(--spacing) * 2);
+  }
   .pt-4 {
     padding-top: calc(var(--spacing) * 4);
   }
@@ -1066,6 +1095,10 @@
     --tw-outline-style: none;
     outline-style: none;
   }
+  .select-all {
+    -webkit-user-select: all;
+    user-select: all;
+  }
   .select-none {
     -webkit-user-select: none;
     user-select: none;
@@ -1102,6 +1135,13 @@
     &:hover {
       @media (hover: hover) {
         background-color: #181c26;
+      }
+    }
+  }
+  .hover\:bg-\[\#1088E4\] {
+    &:hover {
+      @media (hover: hover) {
+        background-color: #1088E4;
       }
     }
   }
@@ -1177,6 +1217,11 @@
   .active\:bg-\[\#5C4CD7\] {
     &:active {
       background-color: #5C4CD7;
+    }
+  }
+  .active\:bg-\[\#0068C4\] {
+    &:active {
+      background-color: #0068C4;
     }
   }
   .disabled\:pointer-events-none {

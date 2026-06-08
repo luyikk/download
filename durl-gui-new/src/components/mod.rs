@@ -1,6 +1,7 @@
 pub mod context_menu;
 pub mod download_card;
 pub mod download_list;
+pub mod ext_install_dialog;
 pub mod icons;
 pub mod log_panel;
 pub mod sidebar;

@@ -15,6 +15,12 @@ pub struct AppState {
     pub show_new_dialog: Signal<bool>,
     /// Pre-fill data for the NewDownload dialog (from browser extension).
     pub browser_req: Signal<Option<BrowserDownloadReq>>,
+    /// Browser extension install guide dialog.
+    pub show_ext_install: Signal<bool>,
+    /// Path to extracted extension folder.
+    pub ext_install_path: Signal<String>,
+    /// Which browser's extensions URL to show (chrome:// or edge://).
+    pub ext_browser_url: Signal<String>,
     /// Right-click context menu: (task_id, screen_x, screen_y)
     pub context_menu: Signal<Option<(u64, f64, f64)>>,
     /// Dirty flag — set true when tasks change, triggers auto-save.
