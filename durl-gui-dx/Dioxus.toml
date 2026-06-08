@@ -3,7 +3,7 @@
 [web.app]
 
 # HTML title tag content
-title = "durl-gui-new"
+title = "durl-gui-dx"
 
 # include `assets` in web platform
 [web.resource]

@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 /// Returns the application config directory.
-/// On Windows: `%APPDATA%/durl-gui-new/`
+/// On Windows: `%APPDATA%/durl-gui-dx/`
 pub fn app_config_dir() -> PathBuf {
     let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-    let dir = base.join("durl-gui-new");
+    let dir = base.join("durl-gui-dx");
     let _ = std::fs::create_dir_all(&dir);
     dir
 }

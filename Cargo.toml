@@ -3,9 +3,8 @@ members = [
     "download-lib",
     "durl",
     "durl-gui",
-    "durl-gui-new",
+    "durl-gui-dx",
     "libdurl",
-    "durl-gui-new",
 ]
 resolver = "2"
 

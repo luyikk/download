@@ -1,5 +1,5 @@
 [package]
-name = "durl-gui-new"
+name = "durl-gui-dx"
 version = "0.1.0"
 authors = ["luyi <luyikk@126.com>"]
 edition = "2021"
@@ -20,7 +20,6 @@ open = "5"
 ntex = { version = "3", features = ["tokio"] }
 anyhow = "1"
 dashmap = "6"
-any-mpsc = "0.3"
 log = "0.4"
 arboard = "3"
 
