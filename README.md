@@ -7,6 +7,7 @@ This repository contains:
 - `download-lib` — async Rust library / 异步 Rust 库
 - `libdurl` — C ABI wrapper for native integration / C ABI 封装，用于原生集成
 - `durl-gui` — cross-platform GUI download manager (eframe/egui) / 跨平台 GUI 下载管理器
+- `durl-gui-dx` — modern GUI download manager (Dioxus) / 现代化 GUI 下载管理器（Dioxus）
 ---
 ## Features / 功能特性
 | Feature | 功能 |
@@ -119,6 +120,41 @@ A desktop GUI download manager built with [eframe](https://github.com/emilk/egui
 sudo apt install fonts-noto-cjk        # Ubuntu/Debian
 sudo pacman -S noto-fonts-cjk          # Arch Linux
 ```
+---
+## GUI (durl-gui-dx)
+A modern desktop GUI download manager built with [Dioxus](https://dioxuslabs.com/).
+基于 [Dioxus](https://dioxuslabs.com/) 构建的现代化桌面 GUI 下载管理器。
+![durl-gui-dx screenshot](./durl-gui-dx/assets/gui.png)
+**Features / 功能：**
+- Task list with card-style layout, progress bar, speed, ETA, elapsed time, file size, SHA256
+  任务列表：卡片式布局、进度条、速度、剩余时间、已用时间、文件大小、SHA256
+- New download dialog with URL, save path, filename, concurrency, cookie fields
+  新建下载对话框：URL、保存路径、文件名、并发数、Cookie
+- Pause / Resume / Delete / Re-download via toolbar and context menu
+  工具栏和右键菜单：暂停/恢复/删除/重新下载
+- Copy URL / Copy SHA256 from right-click context menu
+  右键菜单复制 URL / 复制 SHA256
+- Shared log panel with configurable log level (Error / Warn / Info / Debug / Trace)
+  共享日志面板，支持可配置日志级别
+- i18n: built-in zh-CN, en-US — user-extensible via TOML files
+  多语言：内置中文/英文，可在配置目录自定义 TOML 语言文件
+- Light / Dark theme toggle
+  明亮 / 深色主题切换
+- Config stored in OS app-config directory (Windows: `%APPDATA%/durl-gui-dx/`)
+  配置存储在系统配置目录（Windows：`%APPDATA%/durl-gui-dx/`）
+- Browser extension support (Chrome & Edge) — intercepts browser downloads and sends to durl-gui-dx
+  内置浏览器扩展支持（Chrome & Edge）——拦截浏览器下载并直接发送到 durl-gui-dx
+- Router-based navigation: Downloads page + Settings page
+  基于路由的导航：下载页面 + 设置页面
+**Quick Start / 快速开始：**
+```bash
+cd durl-gui-dx
+dx serve --platform desktop     # Development / 开发模式
+cargo build --release           # Production build / 生产构建
+```
+**Browser Extension Install / 浏览器扩展安装：**
+Same as `durl-gui` above — find the install buttons under **Settings**.
+安装方式与 `durl-gui` 相同——在**设置**页面找到安装按钮。
 ---
 ## Cookie Format / Cookie 格式
 Two JSON formats are supported:
