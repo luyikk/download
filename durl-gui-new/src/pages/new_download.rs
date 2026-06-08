@@ -47,7 +47,7 @@ pub fn NewDownload() -> Element {
             return;
         }
         let save = PathBuf::from(save_path().trim());
-        let tc: u64 = task_count().trim().parse().unwrap_or(8).max(1);
+        let tc: u64 = task_count().trim().parse().unwrap_or(8).max(1).clamp(1, 64);;
         let cn = if filename().trim().is_empty() {
             None
         } else {
@@ -162,16 +162,18 @@ pub fn NewDownload() -> Element {
                         label { class: "block text-sm font-semibold {cls.text_muted}", "{lbl_threads}" }
                         input { class: "w-20 px-4 py-2.5 rounded-lg {cls.input_bg} border {cls.input_border} {cls.text_primary} text-base outline-none transition-colors focus:border-[#6C5CE7]/50",
                             r#type: "number", value: "{task_count}", min: "1", max: "64",
-                            oninput: move |ev| task_count.set(ev.value()),
+                            oninput: move |ev| {
+                                task_count.set(ev.value())
+                            },
                         }
                     }
                 }
 
                 div { class: "flex items-center justify-end gap-3 px-8 py-5 border-t {cls.border} shrink-0",
-                    button { class: "px-5 py-2.5 rounded-lg text-base font-medium border {cls.border} {cls.text_secondary} {cls.hover_bg} hover:{cls.text_primary} transition-all duration-150 min-w-20",
+                    button { class: "!px-6 !mt-1 !py-0.5 rounded-lg text-base font-medium border {cls.border} {cls.text_secondary} {cls.hover_bg} hover:{cls.text_primary} transition-all duration-150 min-w-20",
                         onclick: close, "{lbl_cancel}"
                     }
-                    button { class: "px-6 py-2.5 rounded-lg text-base font-medium bg-[#6C5CE7] text-white hover:bg-[#7C6CF7] active:bg-[#5C4CD7] transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none min-w-20",
+                    button { class: "!px-6 !mt-1 !py-0.5 rounded-lg text-base font-medium bg-[#6C5CE7] text-white hover:bg-[#7C6CF7] active:bg-[#5C4CD7] transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none min-w-20",
                         disabled: !can_start, onclick: start_download, "{lbl_start}"
                     }
                 }

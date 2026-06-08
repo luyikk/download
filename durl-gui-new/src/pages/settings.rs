@@ -36,7 +36,7 @@ pub fn Settings() -> Element {
             "light".into()
         };
         if let Ok(n) = task_count().parse::<u64>() {
-            cfg.write().default_task_count = n;
+            cfg.write().default_task_count = n.clamp(1, 64);;
         }
         cfg.write().log_level = log_level();
         // Apply log level change at runtime
@@ -208,7 +208,7 @@ pub fn Settings() -> Element {
                                                 cfg.write().theme = id.to_string();
                                                 cfg.read().save();
                                             },
-                                            span { class: "mr-2",
+                                            span {
                                                 if id == "dark" { "🌙" } else { "☀" }
                                             }
                                             "{theme_name}"
@@ -225,7 +225,7 @@ pub fn Settings() -> Element {
                             class: "px-6 py-2 rounded-lg text-sm font-medium \
                                     bg-[#6C5CE7] text-white \
                                     hover:bg-[#7C6CF7] active:bg-[#5C4CD7] \
-                                    transition-all duration-150 min-w-[80px]",
+                                    transition-all duration-150 min-w-[80px] !px-2",
                             onclick: save_config,
                             "{lbl_save}"
                         }

@@ -1,0 +1,83 @@
+# Russian Language Pack
+
+[meta]
+display_name = "Русский"
+
+[sidebar]
+downloads = "Загрузки"
+all = "Все"
+downloading = "Загружается"
+completed = "Завершено"
+settings = "Настройки"
+
+[toolbar]
+new = "Новая"
+pause = "Пауза"
+resume = "Продолжить"
+delete = "Удалить"
+active = "{count} активно"
+
+[status]
+starting = "Запуск"
+downloading = "Загружается"
+paused = "Приостановлено"
+completed = "Завершено"
+error = "Ошибка"
+
+[card]
+completed_in = "Завершено за {time}"
+left = "осталось"
+
+[list]
+empty_all = "Нет загрузок"
+empty_downloading = "Нет активных загрузок"
+empty_completed = "Нет завершённых загрузок"
+empty_hint = "Нажмите «+ Новая», чтобы начать загрузку"
+
+[log]
+title = "Журнал ({count})"
+clear = "Очистить"
+empty = "Нет записей в журнале..."
+
+[page_downloads]
+all = "Все загрузки"
+downloading = "Загружается"
+completed = "Завершено"
+all_sub = "Задач: {count}"
+downloading_sub = "Активных: {count}"
+completed_sub = "Завершено: {count}"
+
+[page_settings]
+title = "Настройки"
+back = "← Назад"
+save_dir = "Папка по умолчанию"
+save_dir_placeholder = "Выберите папку..."
+browse = "Обзор"
+concurrency = "Потоков по умолчанию"
+log_level = "Уровень журнала"
+language_label = "Язык"
+theme_label = "Тема"
+theme_note = "Кнопка ☀/🌙 в панели инструментов переключает тему."
+save = "Сохранить настройки"
+
+[context_menu]
+pause = "Пауза"
+resume = "Продолжить"
+open_file = "Открыть файл"
+open_dir = "Открыть папку"
+copy_url = "Копировать ссылку"
+copy_sha256 = "Копировать SHA256"
+redownload = "Перезагрузить"
+delete = "Удалить"
+
+[dialog_new]
+title = "Новая загрузка"
+url_label = "Ссылка"
+url_placeholder = "https://example.com/file.zip"
+save_dir = "Сохранить в"
+filename_label = "Имя файла"
+filename_placeholder = "Автоопределение"
+concurrency_label = "Потоков"
+cancel = "Отмена"
+start = "Начать загрузку"
+browse = "Обзор"
