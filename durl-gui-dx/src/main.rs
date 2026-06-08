@@ -82,7 +82,7 @@ fn main() {
                         ))
                         .unwrap(),
                     ))
-                    .with_inner_size(dioxus::desktop::LogicalSize::new(800.0, 630.0))
+                    .with_inner_size(dioxus::desktop::LogicalSize::new(955.0, 630.0)),
             ),
         )
         .launch(App);
