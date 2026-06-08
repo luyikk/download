@@ -7,7 +7,6 @@ use crate::state::app_state::AppState;
 use crate::state::config::UserConfig;
 use crate::state::download_task::{extract_filename, DownloadTask, TaskStatus};
 use crate::state::i18n::LangStrings;
-use crate::state::log_entry::LogEntry;
 use crate::state::theme::ThemeClasses;
 
 /// New download dialog — modal overlay.
@@ -27,7 +26,7 @@ pub fn NewDownload() -> Element {
         .as_ref()
         .and_then(|r| r.filename.clone())
         .unwrap_or_default();
-    let prefill_cookies = prefill
+    let cookies = prefill
         .as_ref()
         .map(|r| r.cookies.clone())
         .unwrap_or_default();
@@ -35,7 +34,7 @@ pub fn NewDownload() -> Element {
     let mut url = use_signal(|| prefill_url);
     let mut save_path = use_signal(|| cfg().default_save_path.clone());
     let mut filename = use_signal(|| prefill_filename);
-    let cookies = use_signal(|| prefill_cookies);
+
     let mut task_count = use_signal(|| cfg().default_task_count.to_string());
 
     let title = lang.get("dialog_new.title").to_string();
@@ -68,10 +67,10 @@ pub fn NewDownload() -> Element {
             Some(filename().trim().to_string())
         };
         let cn_for_dl = cn.clone();
-        let ck = if cookies().trim().is_empty() {
+        let ck = if cookies.trim().is_empty() {
             None
         } else {
-            Some(cookies().trim().to_string())
+            Some(cookies.trim().to_string())
         };
         let ck_for_dl = ck.clone();
 
@@ -126,9 +125,7 @@ pub fn NewDownload() -> Element {
         };
 
         state.tasks.write().push(task);
-        (state.logs)
-            .write()
-            .push(LogEntry::app(format!("Starting: {}", display_name)));
+        log::info!("Starting: {}", display_name);
         state.browser_req.set(None);
         state.show_new_dialog.set(false);
     };

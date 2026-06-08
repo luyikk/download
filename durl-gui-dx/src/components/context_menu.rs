@@ -5,7 +5,6 @@ use dioxus::prelude::*;
 use crate::state::app_state::AppState;
 use crate::state::download_task::{DownloadTask, TaskStatus};
 use crate::state::i18n::LangStrings;
-use crate::state::log_entry::LogEntry;
 use crate::state::theme::ThemeClasses;
 
 /// Right-click context menu for download cards.
@@ -161,9 +160,9 @@ fn handle_action(key: &str, task: &DownloadTask, state: &mut AppState) {
                     let _ = clipboard.set_text(&url);
                 }
             });
-            (state.logs)
-                .write()
-                .push(LogEntry::app(format!("Copied URL for task #{}", id)));
+
+            log::info!("Copied URL for task #{id}");
+
             (state.context_menu).set(None);
         }
         "copy_sha256" => {
@@ -174,9 +173,7 @@ fn handle_action(key: &str, task: &DownloadTask, state: &mut AppState) {
                         let _ = clipboard.set_text(&hash);
                     }
                 });
-                (state.logs)
-                    .write()
-                    .push(LogEntry::app(format!("Copied SHA256 for task #{}", id)));
+                log::info!("Copied SHA256 for task #{}", id);
             }
             (state.context_menu).set(None);
         }
@@ -192,9 +189,7 @@ fn handle_action(key: &str, task: &DownloadTask, state: &mut AppState) {
                     df.suspend();
                 }
             });
-            (state.logs)
-                .write()
-                .push(LogEntry::app(format!("Paused task #{}", id)));
+            log::info!("Paused task #{}", id);
             (state.context_menu).set(None);
         }
         "resume" => {
@@ -226,9 +221,7 @@ fn handle_action(key: &str, task: &DownloadTask, state: &mut AppState) {
                     });
                 }
             });
-            (state.logs)
-                .write()
-                .push(LogEntry::app(format!("Resumed task #{}", id)));
+            log::info!("Resumed task #{}", id);
             (state.context_menu).set(None);
         }
         "open_file" => {
@@ -287,9 +280,7 @@ fn handle_action(key: &str, task: &DownloadTask, state: &mut AppState) {
             DownloadTask::with_runtime_id(id, |rt| {
                 rt.receiver = Some(Mutex::new(rx));
             });
-            (state.logs)
-                .write()
-                .push(LogEntry::app(format!("Re-downloading task #{}", id)));
+            log::info!("Re-downloading task #{}", id);
             (state.context_menu).set(None);
         }
         "delete" => {
@@ -301,9 +292,7 @@ fn handle_action(key: &str, task: &DownloadTask, state: &mut AppState) {
             DownloadTask::remove_runtime(id);
             state.tasks.write().retain(|t| t.id != id);
             (state.selected_id).set(None);
-            (state.logs)
-                .write()
-                .push(LogEntry::app(format!("Deleted task #{}", id)));
+            log::info!("Deleted task #{}", id);
             (state.context_menu).set(None);
         }
         _ => {}

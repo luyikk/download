@@ -1,4 +1,3 @@
-use dioxus::fullstack::Loader;
 use dioxus::prelude::*;
 
 use crate::components::download_card::DownloadCard;
@@ -9,7 +8,7 @@ use crate::state::theme::ThemeClasses;
 /// List container for download cards with filtering.
 #[component]
 pub fn DownloadList(
-    tasks: Loader<Vec<DownloadTask>>,
+    tasks: Signal<Vec<DownloadTask>>,
     filter: Signal<Filter>,
     selected_id: Signal<Option<u64>>,
 ) -> Element {

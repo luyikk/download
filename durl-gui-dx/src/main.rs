@@ -25,7 +25,6 @@ use state::app_state::AppState;
 use state::config::UserConfig;
 use state::download_task::{DownloadTask, Filter};
 use state::i18n::LangStrings;
-use state::log_entry::LogEntry;
 use state::theme::{DARK, LIGHT};
 
 const MAIN_CSS: &str = include_str!("../assets/main.css");
@@ -98,8 +97,6 @@ fn main() {
 /// Root component.
 #[component]
 fn App() -> Element {
-    info!("start");
-
     let cfg = use_signal(UserConfig::load);
 
     // Initialize the GUI logger (channel-based, non-blocking)
@@ -121,8 +118,10 @@ fn App() -> Element {
         Mutex::new(rx)
     });
 
+    let data = DownloadTask::load_all()?;
+
     // Load persisted tasks
-    let tasks = use_loader(|| async move { dioxus::Ok(DownloadTask::load_all()?) })?;
+    let tasks = use_signal(move || data);
 
     let filter = use_signal(|| Filter::All);
     let selected_id = use_signal(|| None::<u64>);
@@ -132,8 +131,7 @@ fn App() -> Element {
     let ext_install_path = use_signal(String::new);
     let ext_browser_url = use_signal(String::new);
     let context_menu = use_signal(|| None::<(u64, f64, f64)>);
-    // Initial log entry (app-level, no level tag)
-    let logs = use_signal(|| vec![LogEntry::app("DUrl v0.1.0 started")]);
+    let logs = use_signal(Vec::new);
     let dirty = use_signal(|| false);
 
     use_context_provider(|| AppState {
@@ -151,6 +149,11 @@ fn App() -> Element {
     });
 
     use_context_provider(|| cfg);
+
+    // Log startup once — flows through GuiLogger → LogBuffer → LogPanel
+    use_effect(|| {
+        log::info!("DUrl v0.1.0 started");
+    });
 
     rsx! {
         style { {MAIN_CSS} }

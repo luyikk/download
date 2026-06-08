@@ -9,7 +9,6 @@ use crate::components::toolbar::Toolbar;
 use crate::gui_logger::LogBuffer;
 use crate::state::app_state::AppState;
 use crate::state::download_task::{compute_sha256, DownloadTask, TaskStatus};
-use crate::state::log_entry::LogEntry;
 use crate::state::theme::ThemeClasses;
 use crate::Route;
 
@@ -31,7 +30,7 @@ pub fn Shell() -> Element {
 
     // ── Periodic update tick ───────────────────────────────
     let mut tick = use_signal(|| 0u64);
-    use_coroutine(move |_rx: UnboundedReceiver<()>| async move {
+    use_future(move || async move {
         loop {
             tokio::time::sleep(Duration::from_millis(200)).await;
             tick += 1;
@@ -94,8 +93,7 @@ pub fn Shell() -> Element {
                 t.sha256 = Some(hash.clone());
                 dirty.set(true);
             }
-            logs.write()
-                .push(LogEntry::app(format!("SHA256: {}", hash)));
+            log::info!("SHA256: {}", hash);
         }
 
         // Check download receiver + poll progress
@@ -124,8 +122,7 @@ pub fn Shell() -> Element {
                             t.status = TaskStatus::Downloading;
                         }
                         dirty.set(true);
-                        logs.write()
-                            .push(LogEntry::app(format!("Downloading: {}", fname)));
+                        log::info!("Downloading: {}", fname);
                         rt.download = Some(df);
                     }
                     Err(e) => {
@@ -135,8 +132,7 @@ pub fn Shell() -> Element {
                             t.error_msg = Some(e.to_string());
                         }
                         dirty.set(true);
-                        logs.write()
-                            .push(LogEntry::app_error(format!("Failed: {}", e)));
+                        log::error!("Failed: {}", e);
                     }
                 }
                 rt.receiver = None;
@@ -169,10 +165,7 @@ pub fn Shell() -> Element {
                             t.status = TaskStatus::Error;
                             t.error_msg = status.get_error().map(|e| e.to_string());
                             dirty.set(true);
-                            logs.write().push(LogEntry::app_error(format!(
-                                "Error: {}",
-                                t.error_msg.as_deref().unwrap_or("unknown")
-                            )));
+                            log::error!("Error: {}", t.error_msg.as_deref().unwrap_or("unknown"));
                         } else {
                             t.status = TaskStatus::Completed;
                             t.progress = 100.0;
@@ -180,13 +173,12 @@ pub fn Shell() -> Element {
                             t.speed = 0;
                             dirty.set(true);
                             t.file_path = df.get_real_file_path();
-                            logs.write()
-                                .push(LogEntry::app(format!("Completed: {}", t.file_path)));
+                            log::info!("Completed: {}", t.file_path);
 
                             // Queue SHA256 computation (must be done OUTSIDE the runtime lock)
                             if t.sha256.is_none() {
                                 sha256_queue.push((t.id, t.file_path.clone()));
-                                logs.write().push(LogEntry::app("Computing SHA256..."));
+                                log::info!("Computing SHA256...");
                             }
                         }
                     }
@@ -253,8 +245,7 @@ pub fn Shell() -> Element {
                     df.suspend();
                 }
             });
-            logs.write()
-                .push(LogEntry::app(format!("Paused task #{}", id)));
+            log::info!("Paused task #{}", id);
             dirty.set(true);
         }
     };
@@ -293,8 +284,7 @@ pub fn Shell() -> Element {
                         });
                     }
                 });
-                logs.write()
-                    .push(LogEntry::app(format!("Resumed task #{}", id)));
+                log::info!("Resumed task #{}", id);
                 dirty.set(true);
             }
         }
@@ -310,8 +300,7 @@ pub fn Shell() -> Element {
             DownloadTask::remove_runtime(id);
             tasks_sig.write().retain(|t| t.id != id);
             sel_id.set(None);
-            logs.write()
-                .push(LogEntry::app(format!("Deleted task #{}", id)));
+            log::info!("Deleted task #{}", id);
             dirty.set(true);
         }
     };

@@ -1,4 +1,3 @@
-use dioxus::fullstack::Loader;
 use dioxus::prelude::*;
 
 use crate::browser_server::BrowserDownloadReq;
@@ -8,7 +7,7 @@ use crate::state::log_entry::LogEntry;
 /// Shared application state, provided via context at the root.
 #[derive(Clone, Copy)]
 pub struct AppState {
-    pub tasks: Loader<Vec<DownloadTask>>,
+    pub tasks: Signal<Vec<DownloadTask>>,
     pub filter: Signal<Filter>,
     pub selected_id: Signal<Option<u64>>,
     pub logs: Signal<Vec<LogEntry>>,

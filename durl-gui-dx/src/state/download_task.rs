@@ -5,7 +5,6 @@
 
 use anyhow::Result;
 use dashmap::DashMap;
-use dioxus::prelude::info;
 use download_lib::DownloadFile;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -172,7 +171,7 @@ impl DownloadTask {
     /// Serialize all tasks to JSON.
     pub fn save_all(tasks: &[DownloadTask]) -> Result<()> {
         let path = crate::paths::tasks_config_path();
-        info!("saved tasks to {}", path.display());
+        log::info!("saved tasks to {}", path.display());
         let filter: Vec<&DownloadTask> = tasks.iter().collect();
         let toml = serde_json::to_string_pretty(&filter)?;
         std::fs::write(&path, toml)?;
@@ -183,7 +182,7 @@ impl DownloadTask {
     /// Load persisted tasks. Restored as Paused.
     pub fn load_all() -> Result<Vec<DownloadTask>> {
         let path = crate::paths::tasks_config_path();
-        info!("loaded tasks from {}", path.display());
+        log::info!("loaded tasks from {}", path.display());
         if !std::fs::exists(&path)? {
             return Ok(vec![]);
         }
