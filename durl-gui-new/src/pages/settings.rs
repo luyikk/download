@@ -36,7 +36,7 @@ pub fn Settings() -> Element {
             "light".into()
         };
         if let Ok(n) = task_count().parse::<u64>() {
-            cfg.write().default_task_count = n.clamp(1, 64);;
+            cfg.write().default_task_count = n.clamp(1, 64);
         }
         cfg.write().log_level = log_level();
         // Apply log level change at runtime

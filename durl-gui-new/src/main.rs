@@ -1,7 +1,8 @@
 use dioxus::logger::tracing::Level;
 use dioxus::prelude::*;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
+mod browser_server;
 mod components;
 mod gui_logger;
 mod layout;
@@ -9,6 +10,7 @@ mod pages;
 mod paths;
 mod state;
 
+use browser_server::{start_browser_server, BrowserDownloadReq};
 use components::context_menu::ContextMenu;
 use gui_logger::LogBuffer;
 use layout::shell::Shell;
@@ -48,6 +50,16 @@ pub fn rt() -> &'static tokio::runtime::Runtime {
     })
 }
 
+/// Global browser download request receiver, polled by Shell on every tick.
+static BROWSER_RX: OnceLock<Mutex<std::sync::mpsc::Receiver<BrowserDownloadReq>>> = OnceLock::new();
+
+/// Retrieve the global browser receiver (if initialized).
+pub fn try_recv_browser_req() -> Option<BrowserDownloadReq> {
+    BROWSER_RX
+        .get()
+        .and_then(|mu| mu.lock().unwrap().try_recv().ok())
+}
+
 fn main() {
     // Disable always-on-top
     std::env::set_var("DIOXUS_ALWAYS_ON_TOP", "false");
@@ -80,12 +92,20 @@ fn App() -> Element {
     let lang = use_signal(|| LangStrings::load(&initial_lang));
     use_context_provider(|| lang);
 
+    // Start browser-extension HTTP server (once)
+    BROWSER_RX.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<BrowserDownloadReq>();
+        start_browser_server(tx);
+        Mutex::new(rx)
+    });
+
     // Load persisted tasks
     let tasks = use_loader(|| async move { dioxus::Ok(DownloadTask::load_all()?) })?;
 
     let filter = use_signal(|| Filter::All);
     let selected_id = use_signal(|| None::<u64>);
     let show_new_dialog = use_signal(|| false);
+    let browser_req = use_signal(|| None::<BrowserDownloadReq>);
     let context_menu = use_signal(|| None::<(u64, f64, f64)>);
     // Initial log entry (app-level, no level tag)
     let logs = use_signal(|| vec![LogEntry::app("DUrl v0.1.0 started")]);
@@ -97,6 +117,7 @@ fn App() -> Element {
         selected_id,
         logs,
         show_new_dialog,
+        browser_req,
         context_menu,
         dirty,
     });

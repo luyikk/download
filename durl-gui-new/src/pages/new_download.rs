@@ -20,9 +20,22 @@ pub fn NewDownload() -> Element {
     let cfg = use_context::<Signal<UserConfig>>();
     let mut state = use_context::<AppState>();
 
-    let mut url = use_signal(String::new);
+    // Pre-fill from browser extension request if available
+    let prefill = (state.browser_req)();
+    let prefill_url = prefill.as_ref().map(|r| r.url.clone()).unwrap_or_default();
+    let prefill_filename = prefill
+        .as_ref()
+        .and_then(|r| r.filename.clone())
+        .unwrap_or_default();
+    let prefill_cookies = prefill
+        .as_ref()
+        .map(|r| r.cookies.clone())
+        .unwrap_or_default();
+
+    let mut url = use_signal(|| prefill_url);
     let mut save_path = use_signal(|| cfg().default_save_path.clone());
-    let mut filename = use_signal(String::new);
+    let mut filename = use_signal(|| prefill_filename);
+    let cookies = use_signal(|| prefill_cookies);
     let mut task_count = use_signal(|| cfg().default_task_count.to_string());
 
     let title = lang.get("dialog_new.title").to_string();
@@ -37,6 +50,7 @@ pub fn NewDownload() -> Element {
     let lbl_browse = lang.get("dialog_new.browse").to_string();
 
     let close = move |_| {
+        state.browser_req.set(None);
         state.show_new_dialog.set(false);
     };
     let can_start = !url().trim().is_empty();
@@ -47,13 +61,19 @@ pub fn NewDownload() -> Element {
             return;
         }
         let save = PathBuf::from(save_path().trim());
-        let tc: u64 = task_count().trim().parse().unwrap_or(8).max(1).clamp(1, 64);;
+        let tc: u64 = task_count().trim().parse().unwrap_or(8).max(1).clamp(1, 64);
         let cn = if filename().trim().is_empty() {
             None
         } else {
             Some(filename().trim().to_string())
         };
         let cn_for_dl = cn.clone();
+        let ck = if cookies().trim().is_empty() {
+            None
+        } else {
+            Some(cookies().trim().to_string())
+        };
+        let ck_for_dl = ck.clone();
 
         let tasks = state.tasks.read();
         let id = tasks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
@@ -78,7 +98,7 @@ pub fn NewDownload() -> Element {
                 tc,
                 1024 * 1024,
                 cn_for_dl,
-                None,
+                ck_for_dl,
             )
             .await;
             let _ = tx.send(result);
@@ -101,7 +121,7 @@ pub fn NewDownload() -> Element {
             elapsed: Duration::ZERO,
             start_time_ms: now_ms,
             task_count: tc,
-            cookies: None,
+            cookies: ck,
             sha256: None,
         };
 
@@ -109,6 +129,7 @@ pub fn NewDownload() -> Element {
         (state.logs)
             .write()
             .push(LogEntry::app(format!("Starting: {}", display_name)));
+        state.browser_req.set(None);
         state.show_new_dialog.set(false);
     };
 

@@ -275,12 +275,6 @@
   .mx-auto {
     margin-inline: auto;
   }
-  .\!my-1 {
-    margin-block: calc(var(--spacing) * 1) !important;
-  }
-  .\!my-1\.5 {
-    margin-block: calc(var(--spacing) * 1.5) !important;
-  }
   .my-1 {
     margin-block: calc(var(--spacing) * 1);
   }
@@ -292,9 +286,6 @@
   }
   .\!mr-2 {
     margin-right: calc(var(--spacing) * 2) !important;
-  }
-  .mr-2 {
-    margin-right: calc(var(--spacing) * 2);
   }
   .mr-3 {
     margin-right: calc(var(--spacing) * 3);
@@ -809,9 +800,6 @@
   .px-4 {
     padding-inline: calc(var(--spacing) * 4);
   }
-  .px-5 {
-    padding-inline: calc(var(--spacing) * 5);
-  }
   .px-6 {
     padding-inline: calc(var(--spacing) * 6);
   }
@@ -829,9 +817,6 @@
   }
   .\!py-2 {
     padding-block: calc(var(--spacing) * 2) !important;
-  }
-  .\!py-2\.5 {
-    padding-block: calc(var(--spacing) * 2.5) !important;
   }
   .py-0\.5 {
     padding-block: calc(var(--spacing) * 0.5);

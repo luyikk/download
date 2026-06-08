@@ -18,7 +18,7 @@ use crate::Route;
 pub fn Shell() -> Element {
     let cls = use_context::<Signal<ThemeClasses>>();
     let cls = cls();
-    let state = use_context::<AppState>();
+    let mut state = use_context::<AppState>();
     let log_collapsed = use_signal(|| false);
 
     // Extract signals
@@ -52,6 +52,17 @@ pub fn Shell() -> Element {
                 log_list.drain(0..1000);
             }
         }
+    }
+
+    // ── Poll browser extension channel ────────────────────
+    if let Some(req) = crate::try_recv_browser_req() {
+        log::trace!(
+            "Received download request from browser: url={}, cookies={:?}",
+            req.url,
+            req.cookies
+        );
+        state.browser_req.set(Some(req));
+        state.show_new_dialog.set(true);
     }
 
     // ── Update tasks ───────────────────────────────────────
