@@ -40,6 +40,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+
+      # Install system deps for GUI builds on Linux
+      - name: Install Linux system deps (GUI)
+        if: runner.os == 'Linux' && (matrix.bin == 'durl-gui' || matrix.bin == 'durl-gui-dx')
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev
+
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: ${{ matrix.bin }}
