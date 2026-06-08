@@ -71,9 +71,8 @@ fn main() {
     // and headless environments — falling back to software avoids a
     // blank white screen while keeping HW acceleration on real GPUs.
     #[cfg(target_os = "linux")]
-    if needs_software_rendering() {
-        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-    }
+    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+
     // Prime the runtime
     let _ = rt();
 
@@ -94,59 +93,6 @@ fn main() {
             ),
         )
         .launch(App);
-}
-
-/// Detect environments where WebKitGTK GPU compositing is known to fail.
-///
-/// Checks in order (first match short-circuits):
-/// 1. WSL / WSL2 — `/proc/version` contains "microsoft"
-/// 2. Explicit software rendering — `LIBGL_ALWAYS_SOFTWARE=1` or `GALLIUM_DRIVER=llvmpipe`
-/// 3. `glxinfo` reports a software renderer (`llvmpipe` / `softpipe`)
-/// 4. No DRI device under `/dev/dri/` — true headless / VPS / Docker
-#[cfg(target_os = "linux")]
-fn needs_software_rendering() -> bool {
-    // 1. WSL detection
-    if std::fs::read_to_string("/proc/version")
-        .map(|s| s.to_lowercase().contains("microsoft"))
-        .unwrap_or(false)
-    {
-        eprintln!("detected WSL — disabling GPU compositing");
-        return true;
-    }
-
-    // 2. Explicit software-rendering env vars
-    if std::env::var("LIBGL_ALWAYS_SOFTWARE").as_deref() == Ok("1")
-        || std::env::var("GALLIUM_DRIVER").as_deref() == Ok("llvmpipe")
-    {
-        eprintln!("software rendering env detected — disabling GPU compositing");
-        return true;
-    }
-
-    // 3. Query GL renderer via glxinfo (best-effort)
-    if let Ok(out) = std::process::Command::new("glxinfo")
-        .args(["-B"])
-        .env(
-            "DISPLAY",
-            std::env::var("DISPLAY").unwrap_or_else(|_| ":0".into()),
-        )
-        .output()
-    {
-        if let Ok(stdout) = String::from_utf8(out.stdout) {
-            let lower = stdout.to_lowercase();
-            if lower.contains("llvmpipe") || lower.contains("softpipe") {
-                eprintln!("software GL renderer detected — disabling GPU compositing");
-                return true;
-            }
-        }
-    }
-
-    // 4. No DRI device at all
-    if !std::path::Path::new("/dev/dri/card0").exists() {
-        eprintln!("no /dev/dri/card0 — disabling GPU compositing");
-        return true;
-    }
-
-    false
 }
 
 /// Root component.
