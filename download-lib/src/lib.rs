@@ -18,11 +18,15 @@ use tokio::sync::OnceCell;
 use tokio::time::sleep;
 
 /// Down file handler
+#[derive(Clone)]
 pub struct DownloadFile {
     task_count: u64,
     save_file: Arc<Actor<FileSave>>,
     inner_status: Arc<DownloadInner>,
 }
+
+unsafe impl Send for DownloadFile {}
+unsafe impl Sync for DownloadFile {}
 
 impl DownloadFile {
     /// Build a shared reqwest client.
