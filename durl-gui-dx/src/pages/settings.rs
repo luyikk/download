@@ -11,10 +11,9 @@ use crate::Route;
 /// Settings page with form layout, persisted to user.toml.
 #[component]
 pub fn Settings() -> Element {
-    let cls = use_context::<Signal<ThemeClasses>>();
-    let cls = cls();
-    let lang_ctx = use_context::<Signal<LangStrings>>();
-    let lang = lang_ctx();
+    let cls = use_context::<Signal<ThemeClasses>>()();
+    let lang = use_context::<Signal<LangStrings>>()();
+
     let mut cfg = use_context::<Signal<UserConfig>>();
     let mut theme = use_context::<Signal<ThemeClasses>>();
     let mut lang_sig = use_context::<Signal<LangStrings>>();
@@ -31,17 +30,20 @@ pub fn Settings() -> Element {
     // ── Save handler ─────────────────────────────────────────
     let lang_for_save = lang.clone();
     let save_config = move |_| {
-        cfg.write().default_save_path = save_path();
-        cfg.write().language = lang_for_save.lang_id.clone();
-        cfg.write().theme = if theme() == DARK {
-            "dark".into()
-        } else {
-            "light".into()
-        };
-        if let Ok(n) = task_count().parse::<u64>() {
-            cfg.write().default_task_count = n.clamp(1, 64);
+        {
+            let mut cfg_write = cfg.write();
+            cfg_write.default_save_path = save_path();
+            cfg_write.language = lang_for_save.lang_id.clone();
+            cfg_write.theme = if theme() == DARK {
+                "dark".into()
+            } else {
+                "light".into()
+            };
+            if let Ok(n) = task_count().parse::<u64>() {
+                cfg_write.default_task_count = n.clamp(1, 64);
+            }
+            cfg_write.log_level = log_level();
         }
-        cfg.write().log_level = log_level();
         // Apply log level change at runtime
         crate::gui_logger::set_log_level(cfg.read().log_level_filter());
         cfg.read().save();

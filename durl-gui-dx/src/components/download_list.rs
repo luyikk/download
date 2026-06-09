@@ -12,8 +12,7 @@ pub fn DownloadList(
     filter: Signal<Filter>,
     selected_id: Signal<Option<u64>>,
 ) -> Element {
-    let cls = use_context::<Signal<ThemeClasses>>();
-    let cls = cls();
+    let cls = use_context::<Signal<ThemeClasses>>()();
     let lang = use_context::<Signal<LangStrings>>();
     let lang = lang();
 

@@ -19,11 +19,10 @@ pub fn Toolbar(
     on_delete: EventHandler<()>,
     theme_toggle: Element,
 ) -> Element {
-    let cls = use_context::<Signal<ThemeClasses>>();
-    let cls = cls();
-    let lang = use_context::<Signal<LangStrings>>();
-    let lang = lang();
+    let cls = use_context::<Signal<ThemeClasses>>()();
+    let lang = use_context::<Signal<LangStrings>>()();
     let mut state = use_context::<AppState>();
+
     let speed_str = format_speed(total_speed);
     let nav = navigator();
 

@@ -15,8 +15,7 @@ pub fn DownloadCard(
     is_selected: bool,
     on_select: EventHandler<u64>,
 ) -> Element {
-    let cls = use_context::<Signal<ThemeClasses>>();
-    let cls = cls();
+    let cls = use_context::<Signal<ThemeClasses>>()();
     let lang = use_context::<Signal<LangStrings>>();
     let lang = lang();
     let mut state = use_context::<AppState>();

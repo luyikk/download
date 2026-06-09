@@ -57,10 +57,6 @@ pub fn init_gui_logger(level: log::LevelFilter) -> LogBuffer {
                 let is_local = entry.target.starts_with("download_lib")
                     || entry.target.starts_with("durl_gui");
 
-                if entry.message == "start" {
-                    println!("[{}] {} - {}", entry.time, entry.level, entry.message);
-                }
-
                 let current = LOG_LEVEL.load(Ordering::Relaxed);
                 let allowed = if is_local {
                     (entry.level as usize) <= current

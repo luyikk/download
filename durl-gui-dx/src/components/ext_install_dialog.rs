@@ -7,10 +7,9 @@ use crate::state::theme::ThemeClasses;
 /// Modal dialog guiding the user through browser extension installation.
 #[component]
 pub fn ExtInstallDialog() -> Element {
-    let cls = use_context::<Signal<ThemeClasses>>();
-    let cls = cls();
-    let lang = use_context::<Signal<LangStrings>>();
-    let lang = lang();
+    let cls = use_context::<Signal<ThemeClasses>>()();
+    let lang = use_context::<Signal<LangStrings>>()();
+
     let mut state = use_context::<AppState>();
 
     let ext_path = (state.ext_install_path)();
@@ -41,22 +40,16 @@ pub fn ExtInstallDialog() -> Element {
 
     let path_for_copy = ext_path.clone();
     let copy_path = move |_| {
-        let p = path_for_copy.clone();
-        std::thread::spawn(move || {
-            if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                let _ = clipboard.set_text(&p);
-            }
-        });
+        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+            let _ = clipboard.set_text(&path_for_copy);
+        }
     };
 
     let url_for_copy = ext_browser_url.clone();
     let copy_url = move |_| {
-        let u = url_for_copy.clone();
-        std::thread::spawn(move || {
-            if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                let _ = clipboard.set_text(&u);
-            }
-        });
+        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+            let _ = clipboard.set_text(&url_for_copy);
+        }
     };
 
     rsx! {

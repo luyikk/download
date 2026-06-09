@@ -9,21 +9,21 @@ use crate::state::theme::ThemeClasses;
 /// Main downloads page — the default route.
 #[component]
 pub fn Downloads() -> Element {
-    let cls = use_context::<Signal<ThemeClasses>>();
-    let cls = cls();
-    let lang = use_context::<Signal<LangStrings>>();
-    let lang = lang();
+    let cls = use_context::<Signal<ThemeClasses>>()();
+    let lang = use_context::<Signal<LangStrings>>()();
     let state = use_context::<AppState>();
 
     let tasks = state.tasks.read();
     let all_count = tasks.len();
-    let (downloading_count, completed_count) =
+
+    let (downloading_count, completed_count) = {
         tasks
             .iter()
             .fold((0usize, 0usize), |(d, c), t| match t.status {
                 TaskStatus::Downloading | TaskStatus::Paused | TaskStatus::Starting => (d + 1, c),
                 TaskStatus::Completed | TaskStatus::Error => (d, c + 1),
-            });
+            })
+    };
 
     let filter_val = (state.filter)();
     let header_title = match filter_val {

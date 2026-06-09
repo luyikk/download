@@ -79,6 +79,8 @@ pub struct AppState {
     pub context_menu: Signal<Option<(u64, f64, f64)>>,
     /// Dirty flag — set true when tasks change, triggers auto-save.
     pub dirty: Signal<bool>,
+    /// Sha256 Update Queue
+    pub sha256_queue: Signal<DashMap<u64, tokio::sync::oneshot::Receiver<(u64, String)>>>,
 }
 
 impl AppState {
@@ -153,22 +155,35 @@ impl AppState {
                                     // Assuming there's a global queue for SHA256 tasks
                                     let file_path = df.get_real_file_path();
                                     let task_id = task.id;
-                                    spawn(async move {
+
+                                    let (tx, rx) = tokio::sync::oneshot::channel();
+                                    tokio::spawn(async move {
                                         if let Ok(hash) = compute_sha256(&file_path) {
                                             log::info!("SHA256: {}", hash);
-                                            if let Some(t) = consume_context::<AppState>()
-                                                .tasks
-                                                .write()
-                                                .iter_mut()
-                                                .find(|t| t.id == task_id)
-                                            {
-                                                t.sha256 = Some(hash);
-                                                consume_context::<AppState>().dirty.set(true);
-                                            }
+                                            let _ = tx.send((task_id, hash));
                                         } else {
                                             log::error!("Failed to compute SHA256: {file_path}");
                                         }
                                     });
+
+                                    app_state.sha256_queue.write().insert(task_id, rx);
+
+                                    // spawn(async move {
+                                    //     if let Ok(hash) = compute_sha256(&file_path) {
+                                    //         log::info!("SHA256: {}", hash);
+                                    //         if let Some(t) = consume_context::<AppState>()
+                                    //             .tasks
+                                    //             .write()
+                                    //             .iter_mut()
+                                    //             .find(|t| t.id == task_id)
+                                    //         {
+                                    //             t.sha256 = Some(hash);
+                                    //             consume_context::<AppState>().dirty.set(true);
+                                    //         }
+                                    //     } else {
+                                    //         log::error!("Failed to compute SHA256: {file_path}");
+                                    //     }
+                                    // });
 
                                     log::info!("Computing SHA256...");
                                 }
@@ -201,6 +216,25 @@ impl AppState {
             );
             app_state.browser_req.set(Some(req));
             app_state.show_new_dialog.set(true);
+        }
+
+        if !app_state.sha256_queue.read().is_empty() {
+            let mut remove = vec![];
+            for mut rx in app_state.sha256_queue.write().iter_mut() {
+                if let Ok((task_id, hash)) = rx.value_mut().try_recv() {
+                    if let Some(t) = app_state.tasks.write().iter_mut().find(|t| t.id == task_id) {
+                        t.sha256 = Some(hash);
+                        remove.push(task_id);
+                        app_state.dirty.set(true);
+                    }
+                }
+            }
+
+            if !remove.is_empty() {
+                for task_id in remove {
+                    app_state.sha256_queue.write().remove(&task_id);
+                }
+            }
         }
     }
 
@@ -266,19 +300,17 @@ impl AppState {
         app_state.tasks.write().push(task);
 
         app_state.browser_req.set(None);
-        app_state.show_new_dialog.set(false);
     }
 
     /// Pause the download task with the given id.
     pub async fn handle_pause(id: PauseType) {
         let id = id.0;
         let mut app_state = consume_context::<AppState>();
-        let mut tasks = app_state.tasks.write();
-        if let Some(t) = tasks.iter_mut().find(|t| t.id == id) {
+
+        if let Some(t) = app_state.tasks.write().iter_mut().find(|t| t.id == id) {
             t.status = TaskStatus::Paused;
             t.speed = 0;
         }
-        drop(tasks);
 
         if let Some(rt) = RUNTIME.get(&id) {
             if let Ok(ref df) = rt.download {

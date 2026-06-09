@@ -1,5 +1,6 @@
 #![windows_subsystem = "windows"]
 
+use dashmap::DashMap;
 use dioxus::logger::tracing::Level;
 use dioxus::prelude::*;
 use std::sync::{Mutex, OnceLock};
@@ -138,6 +139,7 @@ fn App() -> Element {
     let context_menu = use_signal(|| None::<(u64, f64, f64)>);
     let logs = use_signal(Vec::new);
     let dirty = use_signal(|| false);
+    let sha256_queue = use_signal(DashMap::new);
 
     use_context_provider(|| AppState {
         tasks,
@@ -151,6 +153,7 @@ fn App() -> Element {
         ext_browser_url,
         context_menu,
         dirty,
+        sha256_queue,
     });
 
     use_context_provider(|| cfg);

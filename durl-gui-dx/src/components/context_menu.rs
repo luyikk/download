@@ -21,14 +21,15 @@ pub fn ContextMenu() -> Element {
         return rsx! {};
     }
     let (task_id, x, y) = menu.unwrap();
-    let tasks = state.tasks.read();
-    let task = tasks.iter().find(|t| t.id == task_id).cloned();
-    drop(tasks);
-    if task.is_none() {
-        (state.context_menu).set(None);
-        return rsx! {};
-    }
-    let task = task.unwrap();
+    let task = {
+        let tasks = state.tasks.read();
+        if let Some(task) = tasks.iter().find(|t| t.id == task_id).cloned() {
+            task
+        } else {
+            (state.context_menu).set(None);
+            return rsx! {};
+        }
+    };
 
     let close = move |_| {
         (state.context_menu).set(None);

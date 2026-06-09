@@ -11,8 +11,7 @@ use dioxus::prelude::*;
 /// Shared layout wrapping all pages: Toolbar + Sidebar + Outlet + LogPanel.
 #[component]
 pub fn Shell() -> Element {
-    let cls = use_context::<Signal<ThemeClasses>>();
-    let cls = cls();
+    let cls = use_context::<Signal<ThemeClasses>>()();
     let state = use_context::<AppState>();
     let log_collapsed = use_signal(|| false);
 
@@ -25,12 +24,10 @@ pub fn Shell() -> Element {
 
     // ── Update tasks ───────────────────────────────────────
     let tasks = tasks_sig.read();
-    let tasks_clone: Vec<DownloadTask> = tasks.iter().cloned().collect();
-    drop(tasks);
 
     // ── Derived counts ─────────────────────────────────────
-    let all_count = tasks_clone.len();
-    let downloading_count = tasks_clone
+    let all_count = tasks.len();
+    let downloading_count = tasks
         .iter()
         .filter(|t| {
             matches!(
@@ -39,23 +36,22 @@ pub fn Shell() -> Element {
             )
         })
         .count();
-    let completed_count = tasks_clone
+    let completed_count = tasks
         .iter()
         .filter(|t| matches!(t.status, TaskStatus::Completed | TaskStatus::Error))
         .count();
-    let active_count = tasks_clone
+    let active_count = tasks
         .iter()
         .filter(|t| t.status == TaskStatus::Downloading)
         .count();
-    let total_speed: u64 = tasks_clone
+    let total_speed: u64 = tasks
         .iter()
         .filter(|t| t.status == TaskStatus::Downloading)
         .map(|t| t.speed)
         .sum();
 
     let select_id = select_id_signal();
-    let sel_status =
-        select_id.and_then(|id| tasks_clone.iter().find(|t| t.id == id).map(|t| t.status));
+    let sel_status = select_id.and_then(|id| tasks.iter().find(|t| t.id == id).map(|t| t.status));
 
     let can_pause = sel_status == Some(TaskStatus::Downloading);
     let can_resume = sel_status == Some(TaskStatus::Paused);

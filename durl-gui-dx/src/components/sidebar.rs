@@ -13,10 +13,8 @@ pub fn Sidebar(
     downloading_count: usize,
     completed_count: usize,
 ) -> Element {
-    let cls_ctx = use_context::<Signal<ThemeClasses>>();
-    let cls = cls_ctx();
-    let lang_ctx = use_context::<Signal<LangStrings>>();
-    let lang = lang_ctx();
+    let cls = use_context::<Signal<ThemeClasses>>()();
+    let lang = use_context::<Signal<LangStrings>>()();
 
     let items = [
         (Filter::All, "📋", lang.get("sidebar.all"), all_count),

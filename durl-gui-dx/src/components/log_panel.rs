@@ -19,10 +19,8 @@ fn level_color(level: Level) -> &'static str {
 /// color-coded level tags.
 #[component]
 pub fn LogPanel(logs: Signal<Vec<LogEntry>>, collapsed: Signal<bool>) -> Element {
-    let cls_ctx = use_context::<Signal<ThemeClasses>>();
-    let cls = cls_ctx();
-    let lang_ctx = use_context::<Signal<LangStrings>>();
-    let lang = lang_ctx();
+    let cls = use_context::<Signal<ThemeClasses>>()();
+    let lang = use_context::<Signal<LangStrings>>()();
 
     let title = lang.get_fmt("log.title", &[("count", &logs().len().to_string())]);
     let clear_label = lang.get("log.clear").to_string();

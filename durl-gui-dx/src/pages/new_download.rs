@@ -9,23 +9,15 @@ use crate::state::theme::ThemeClasses;
 /// New download dialog — modal overlay.
 #[component]
 pub fn NewDownload() -> Element {
-    let cls = use_context::<Signal<ThemeClasses>>();
-    let cls = cls();
-    let lang = use_context::<Signal<LangStrings>>();
-    let lang = lang();
+    let cls = use_context::<Signal<ThemeClasses>>()();
+    let lang = use_context::<Signal<LangStrings>>()();
     let cfg = use_context::<Signal<UserConfig>>();
     let mut state = use_context::<AppState>();
 
     // Pre-fill from browser extension request if available
     let prefill = (state.browser_req)();
-    let prefill_url = prefill.as_ref().map(|r| r.url.clone()).unwrap_or_default();
-    let prefill_filename = prefill
-        .as_ref()
-        .and_then(|r| r.filename.clone())
-        .unwrap_or_default();
-    let cookies = prefill
-        .as_ref()
-        .map(|r| r.cookies.clone())
+    let (prefill_url, prefill_filename, cookies) = prefill
+        .map(|r| (r.url, r.filename.unwrap_or_default(), r.cookies))
         .unwrap_or_default();
 
     let mut url = use_signal(|| prefill_url);
@@ -131,6 +123,7 @@ pub fn NewDownload() -> Element {
                             };
 
                             use_context::<NewDownLoadType>().call(data);
+                            state.show_new_dialog.set(false);
                         }, "{lbl_start}"
                     }
                 }
