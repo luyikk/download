@@ -200,7 +200,7 @@ fn App() -> Element {
 
     // Log startup once — flows through GuiLogger → LogBuffer → LogPanel
     use_effect(|| {
-        log::info!("DUrl v0.1.0 started");
+        log::info!("DUrl v{} started", env!("CARGO_PKG_VERSION"));
     });
 
     rsx! {
