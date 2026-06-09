@@ -243,23 +243,13 @@ impl AppState {
             .unwrap_or_default()
             .as_millis() as u64;
 
-        let handle = DownloadFile::start_download(
-            &url,
-            save_path.clone(),
-            task_count,
-            1024 * 1024,
-            file_name.clone(),
-            cookies.clone(),
-        )
-        .await;
-
-        let display_name = file_name.unwrap_or_else(|| extract_filename(&url));
+        let display_name = file_name.clone().unwrap_or_else(|| extract_filename(&url));
 
         log::info!("Starting: {}", display_name);
 
         let task = DownloadTask {
             id,
-            url,
+            url: url.clone(),
             filename: display_name,
             file_path: String::new(),
             save_dir: save_path.display().to_string(),
@@ -272,15 +262,25 @@ impl AppState {
             elapsed: Duration::ZERO,
             start_time_ms: now_ms,
             task_count,
-            cookies,
+            cookies: cookies.clone(),
             sha256: None,
         };
+
+        app_state.tasks.write().push(task);
+
+        let handle = DownloadFile::start_download(
+            url,
+            save_path.clone(),
+            task_count,
+            1024 * 1024,
+            file_name,
+            cookies,
+        )
+        .await;
 
         RUNTIME
             .entry(id)
             .insert_entry(RuntimeData { download: handle });
-
-        app_state.tasks.write().push(task);
 
         app_state.browser_req.set(None);
     }
