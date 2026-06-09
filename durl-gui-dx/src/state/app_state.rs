@@ -355,6 +355,13 @@ impl AppState {
                 df.suspend();
             }
         }
+
+        if let Some(t) = app_state.tasks.read().iter().find(|t| t.id == id) {
+            if !t.file_path.is_empty() {
+                let _ = std::fs::remove_file(&t.file_path);
+            }
+        };
+
         app_state.tasks.write().retain(|t| t.id != id);
 
         log::info!("Delete task #{}", id);
