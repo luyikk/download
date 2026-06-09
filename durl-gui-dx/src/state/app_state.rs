@@ -167,24 +167,6 @@ impl AppState {
                                     });
 
                                     app_state.sha256_queue.write().insert(task_id, rx);
-
-                                    // spawn(async move {
-                                    //     if let Ok(hash) = compute_sha256(&file_path) {
-                                    //         log::info!("SHA256: {}", hash);
-                                    //         if let Some(t) = consume_context::<AppState>()
-                                    //             .tasks
-                                    //             .write()
-                                    //             .iter_mut()
-                                    //             .find(|t| t.id == task_id)
-                                    //         {
-                                    //             t.sha256 = Some(hash);
-                                    //             consume_context::<AppState>().dirty.set(true);
-                                    //         }
-                                    //     } else {
-                                    //         log::error!("Failed to compute SHA256: {file_path}");
-                                    //     }
-                                    // });
-
                                     log::info!("Computing SHA256...");
                                 }
                             }
@@ -218,23 +200,24 @@ impl AppState {
             app_state.show_new_dialog.set(true);
         }
 
-        if !app_state.sha256_queue.read().is_empty() {
-            let mut remove = vec![];
-            for mut rx in app_state.sha256_queue.write().iter_mut() {
-                if let Ok((task_id, hash)) = rx.value_mut().try_recv() {
-                    if let Some(t) = app_state.tasks.write().iter_mut().find(|t| t.id == task_id) {
-                        t.sha256 = Some(hash);
-                        remove.push(task_id);
-                        app_state.dirty.set(true);
-                    }
+        let completed_hashes = app_state
+            .sha256_queue
+            .read()
+            .iter_mut()
+            .filter_map(|mut s| s.value_mut().try_recv().ok())
+            .collect::<Vec<_>>();
+
+        if !completed_hashes.is_empty() {
+            let mut tasks_lock = app_state.tasks.write();
+            let queue_lock = app_state.sha256_queue.read();
+            for (task_id, hash) in completed_hashes.iter() {
+                if let Some(task) = tasks_lock.iter_mut().find(|t| t.id == *task_id) {
+                    task.sha256 = Some(hash.clone());
                 }
+                queue_lock.remove(task_id);
             }
 
-            if !remove.is_empty() {
-                for task_id in remove {
-                    app_state.sha256_queue.write().remove(&task_id);
-                }
-            }
+            app_state.dirty.set(true);
         }
     }
 

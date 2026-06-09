@@ -3,21 +3,21 @@ use tokio::task::JoinError;
 
 #[derive(Error, Debug)]
 pub enum DownloadError {
-    #[error("reqwest error->{source:?}")]
+    #[error("reqwest->{source}")]
     ReqwestError {
         #[from]
         source: reqwest::Error,
     },
-    #[error("io error->{source:?}")]
+    #[error("io->{source}")]
     IoError {
         #[from]
         source: std::io::Error,
     },
-    #[error("not get file size ->{0:?}")]
+    #[error("not get file size ->{0}")]
     NotGetFileSize(reqwest::Url),
-    #[error("save file is finish->{0:?}")]
+    #[error("save file is finish->{0}")]
     SaveFileFinish(String),
-    #[error("not get file name ->{0:?}")]
+    #[error("not get file name ->{0}")]
     NotFileName(reqwest::Url),
     #[error("http error:{0}")]
     HttpStatusError(String),
