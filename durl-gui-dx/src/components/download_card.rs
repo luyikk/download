@@ -16,8 +16,8 @@ pub fn DownloadCard(
     on_select: EventHandler<u64>,
 ) -> Element {
     let cls = use_context::<Signal<ThemeClasses>>()();
-    let lang = use_context::<Signal<LangStrings>>();
-    let lang = lang();
+    let lang = use_context::<Signal<LangStrings>>()();
+
     let mut state = use_context::<AppState>();
     let file_type = file_type_for(&task.filename);
 

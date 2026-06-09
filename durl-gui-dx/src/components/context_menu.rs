@@ -10,17 +10,19 @@ use crate::state::theme::ThemeClasses;
 /// Right-click context menu for download cards.
 #[component]
 pub fn ContextMenu() -> Element {
-    let cls = use_context::<Signal<ThemeClasses>>();
-    let cls = cls();
-    let lang = use_context::<Signal<LangStrings>>();
-    let lang = lang();
+    let cls = use_context::<Signal<ThemeClasses>>()();
+    let lang = use_context::<Signal<LangStrings>>()();
+
     let mut state = use_context::<AppState>();
 
-    let menu = (state.context_menu)();
-    if menu.is_none() {
-        return rsx! {};
-    }
-    let (task_id, x, y) = menu.unwrap();
+    let (task_id, x, y) = {
+        if let Some(menu) = (state.context_menu)() {
+            menu
+        } else {
+            return rsx! {};
+        }
+    };
+
     let task = {
         let tasks = state.tasks.read();
         if let Some(task) = tasks.iter().find(|t| t.id == task_id).cloned() {

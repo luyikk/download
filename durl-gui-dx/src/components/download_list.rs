@@ -13,8 +13,7 @@ pub fn DownloadList(
     selected_id: Signal<Option<u64>>,
 ) -> Element {
     let cls = use_context::<Signal<ThemeClasses>>()();
-    let lang = use_context::<Signal<LangStrings>>();
-    let lang = lang();
+    let lang = use_context::<Signal<LangStrings>>()();
 
     let task_list = tasks.read();
     let filtered: Vec<&DownloadTask> = task_list
