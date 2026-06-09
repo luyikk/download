@@ -1,11 +1,8 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
-use std::sync::Mutex;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::state::app_state::AppState;
+use crate::state::app_state::{AppState, NewDownLoadType, NewDownloadContext};
 use crate::state::config::UserConfig;
-use crate::state::download_task::{extract_filename, DownloadTask, TaskStatus};
 use crate::state::i18n::LangStrings;
 use crate::state::theme::ThemeClasses;
 
@@ -53,82 +50,6 @@ pub fn NewDownload() -> Element {
         state.show_new_dialog.set(false);
     };
     let can_start = !url().trim().is_empty();
-
-    let start_download = move |_| {
-        let u = url().trim().to_string();
-        if u.is_empty() {
-            return;
-        }
-        let save = PathBuf::from(save_path().trim());
-        let tc: u64 = task_count().trim().parse().unwrap_or(8).max(1).clamp(1, 64);
-        let cn = if filename().trim().is_empty() {
-            None
-        } else {
-            Some(filename().trim().to_string())
-        };
-        let cn_for_dl = cn.clone();
-        let ck = if cookies.trim().is_empty() {
-            None
-        } else {
-            Some(cookies.trim().to_string())
-        };
-        let ck_for_dl = ck.clone();
-
-        let tasks = state.tasks.read();
-        let id = tasks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
-        drop(tasks);
-
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        DownloadTask::with_runtime_id(id, |rt| {
-            rt.receiver = Some(Mutex::new(rx));
-        });
-
-        let u2 = u.clone();
-        let save2 = save.clone();
-        crate::rt().spawn(async move {
-            let result = download_lib::DownloadFile::start_download(
-                u2,
-                save2,
-                tc,
-                1024 * 1024,
-                cn_for_dl,
-                ck_for_dl,
-            )
-            .await;
-            let _ = tx.send(result);
-        });
-
-        let display_name = cn.unwrap_or_else(|| extract_filename(&u));
-
-        let task = DownloadTask {
-            id,
-            url: u,
-            filename: display_name.clone(),
-            file_path: String::new(),
-            save_dir: save.display().to_string(),
-            file_size: 0,
-            downloaded: 0,
-            speed: 0,
-            progress: 0.0,
-            status: TaskStatus::Starting,
-            error_msg: None,
-            elapsed: Duration::ZERO,
-            start_time_ms: now_ms,
-            task_count: tc,
-            cookies: ck,
-            sha256: None,
-        };
-
-        state.tasks.write().push(task);
-        log::info!("Starting: {}", display_name);
-        state.browser_req.set(None);
-        state.show_new_dialog.set(false);
-    };
 
     rsx! {
         div {
@@ -192,7 +113,25 @@ pub fn NewDownload() -> Element {
                         onclick: close, "{lbl_cancel}"
                     }
                     button { class: "!px-6 !mt-1 !py-0.5 rounded-lg text-base font-medium bg-[#6C5CE7] text-white hover:bg-[#7C6CF7] active:bg-[#5C4CD7] transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none min-w-20",
-                        disabled: !can_start, onclick: start_download, "{lbl_start}"
+                        disabled: !can_start, onclick: move|_|{
+                             let data = NewDownloadContext {
+                                url: url().trim().to_string(),
+                                save_path: PathBuf::from(save_path().trim()),
+                                task_count: task_count().trim().parse().unwrap_or(8).max(1).clamp(1, 64),
+                                filename: if filename().trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(filename().trim().to_string())
+                                },
+                                cookies: if cookies.trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(cookies.trim().to_string())
+                                },
+                            };
+
+                            use_context::<NewDownLoadType>().call(data);
+                        }, "{lbl_start}"
                     }
                 }
             }

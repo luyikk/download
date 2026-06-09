@@ -1,8 +1,8 @@
-use std::sync::Mutex;
-
 use dioxus::prelude::*;
 
-use crate::state::app_state::AppState;
+use crate::state::app_state::{
+    AppState, HandleDeleteType, HandlePauseType, HandleReDownloadType, HandleResumeType,
+};
 use crate::state::download_task::{DownloadTask, TaskStatus};
 use crate::state::i18n::LangStrings;
 use crate::state::theme::ThemeClasses;
@@ -146,82 +146,31 @@ fn handle_action(key: &str, task: &DownloadTask, state: &mut AppState) {
     let id = task.id;
     let file_path = &task.file_path;
     let url = &task.url;
-    let save_dir = &task.save_dir;
-    let task_count = task.task_count;
-    let cookies = &task.cookies;
-    let filename = &task.filename;
     let sha256 = &task.sha256;
 
     match key {
         "copy_url" => {
-            let url = url.to_string();
-            std::thread::spawn(move || {
-                if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                    let _ = clipboard.set_text(&url);
-                }
-            });
-
+            if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                let _ = clipboard.set_text(url);
+            }
             log::info!("Copied URL for task #{id}");
-
             (state.context_menu).set(None);
         }
         "copy_sha256" => {
             if let Some(ref hash) = sha256 {
-                let hash = hash.clone();
-                std::thread::spawn(move || {
-                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                        let _ = clipboard.set_text(&hash);
-                    }
-                });
+                if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                    let _ = clipboard.set_text(hash);
+                }
                 log::info!("Copied SHA256 for task #{}", id);
             }
             (state.context_menu).set(None);
         }
         "pause" => {
-            let mut tlist = state.tasks.write();
-            if let Some(t) = tlist.iter_mut().find(|t| t.id == id) {
-                t.status = TaskStatus::Paused;
-                t.speed = 0;
-            }
-            drop(tlist);
-            DownloadTask::with_runtime_id(id, |rt| {
-                if let Some(ref df) = rt.download {
-                    df.suspend();
-                }
-            });
-            log::info!("Paused task #{}", id);
+            consume_context::<HandlePauseType>().call(id.into());
             (state.context_menu).set(None);
         }
         "resume" => {
-            let mut tlist = state.tasks.write();
-            if let Some(t) = tlist.iter_mut().find(|t| t.id == id) {
-                t.status = TaskStatus::Downloading;
-            }
-            drop(tlist);
-            DownloadTask::with_runtime_id(id, |rt| {
-                if let Some(ref df) = rt.download {
-                    df.restart();
-                } else {
-                    let (tx, _rx) = std::sync::mpsc::channel();
-
-                    let u = url.to_string();
-                    let s = save_dir.to_string();
-                    let ck = cookies.clone();
-                    crate::rt().spawn(async move {
-                        let result = download_lib::DownloadFile::start_download(
-                            u,
-                            std::path::PathBuf::from(s),
-                            task_count,
-                            1024 * 1024,
-                            None,
-                            ck,
-                        )
-                        .await;
-                        let _ = tx.send(result);
-                    });
-                }
-            });
-            log::info!("Resumed task #{}", id);
+            consume_context::<HandleResumeType>().call(id.into());
             (state.context_menu).set(None);
         }
         "open_file" => {
@@ -235,64 +184,13 @@ fn handle_action(key: &str, task: &DownloadTask, state: &mut AppState) {
             (state.context_menu).set(None);
         }
         "redownload" => {
-            // Delete the old file if it exists
-            if !file_path.is_empty() {
-                let _ = std::fs::remove_file(file_path);
-            }
-            // Remove old runtime
-            DownloadTask::remove_runtime(id);
-            // Reset task state
-            {
-                let mut tlist = state.tasks.write();
-                if let Some(t) = tlist.iter_mut().find(|t| t.id == id) {
-                    t.status = TaskStatus::Starting;
-                    t.speed = 0;
-                    t.downloaded = 0;
-                    t.progress = 0.0;
-                    t.file_size = 0;
-                    t.error_msg = None;
-                    t.sha256 = None;
-                    t.file_path = String::new();
-                }
-            }
-            // Spawn new download
-            let custom_name = if filename.is_empty() {
-                None
-            } else {
-                Some(filename.to_string())
-            };
-            let u = url.to_string();
-            let s = save_dir.to_string();
-            let ck = cookies.clone();
-            let (tx, rx) = std::sync::mpsc::channel();
-            crate::rt().spawn(async move {
-                let result = download_lib::DownloadFile::start_download(
-                    u,
-                    std::path::PathBuf::from(s),
-                    task_count,
-                    1024 * 1024,
-                    custom_name,
-                    ck,
-                )
-                .await;
-                let _ = tx.send(result);
-            });
-            DownloadTask::with_runtime_id(id, |rt| {
-                rt.receiver = Some(Mutex::new(rx));
-            });
-            log::info!("Re-downloading task #{}", id);
+            consume_context::<HandleReDownloadType>().call(id.into());
             (state.context_menu).set(None);
         }
         "delete" => {
-            DownloadTask::with_runtime_id(id, |rt| {
-                if let Some(ref df) = rt.download {
-                    df.suspend();
-                }
-            });
-            DownloadTask::remove_runtime(id);
-            state.tasks.write().retain(|t| t.id != id);
-            (state.selected_id).set(None);
+            consume_context::<HandleDeleteType>().call(id.into()); // Ensure task is paused before deletion
             log::info!("Deleted task #{}", id);
+            (state.selected_id).set(None);
             (state.context_menu).set(None);
         }
         _ => {}

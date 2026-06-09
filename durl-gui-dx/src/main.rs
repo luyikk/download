@@ -3,6 +3,7 @@
 use dioxus::logger::tracing::Level;
 use dioxus::prelude::*;
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 
 mod browser_server;
 mod components;
@@ -13,6 +14,10 @@ mod pages;
 mod paths;
 mod state;
 
+use crate::state::app_state::{
+    DeleteType, HandleDeleteType, HandlePauseType, HandleReDownloadType, HandleResumeType,
+    NewDownLoadType, NewDownloadContext, PauseType, ReDownloadType, ResumeType,
+};
 use browser_server::{start_browser_server, BrowserDownloadReq};
 use components::context_menu::ContextMenu;
 use components::ext_install_dialog::ExtInstallDialog;
@@ -149,6 +154,46 @@ fn App() -> Element {
     });
 
     use_context_provider(|| cfg);
+
+    use_future(|| async {
+        loop {
+            AppState::update().await;
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+    });
+
+    let new_down: NewDownLoadType = use_action(|data: NewDownloadContext| async move {
+        AppState::new_download(data).await;
+        dioxus::Ok(())
+    });
+
+    use_context_provider::<NewDownLoadType>(move || new_down);
+
+    let pause: HandlePauseType = use_action(|id: PauseType| async move {
+        AppState::handle_pause(id).await;
+        dioxus::Ok(())
+    });
+
+    use_context_provider::<HandlePauseType>(move || pause);
+
+    let resume = use_action(|id: ResumeType| async move {
+        AppState::handle_resume(id).await;
+        dioxus::Ok(())
+    });
+
+    use_context_provider::<HandleResumeType>(move || resume);
+
+    let delete = use_action(|id: DeleteType| async move {
+        AppState::handle_delete(id).await;
+        dioxus::Ok(())
+    });
+    use_context_provider::<HandleDeleteType>(move || delete);
+
+    let redownload = use_action(|id: ReDownloadType| async move {
+        AppState::handle_redownload(id).await;
+        dioxus::Ok(())
+    });
+    use_context_provider::<HandleReDownloadType>(move || redownload);
 
     // Log startup once — flows through GuiLogger → LogBuffer → LogPanel
     use_effect(|| {

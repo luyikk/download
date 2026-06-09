@@ -4,13 +4,9 @@
 //! for use in Dioxus signals.
 
 use anyhow::Result;
-use dashmap::DashMap;
-use download_lib::DownloadFile;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
-use std::sync::mpsc;
-use std::sync::Mutex;
 use std::time::Duration;
 
 /// Represents the current status of a download task.
@@ -44,23 +40,6 @@ pub enum Filter {
     Completed,
 }
 
-/// Runtime-only data that can't be cloned / put in signals.
-/// Wraps `mpsc::Receiver` in `Mutex` so that `RuntimeData` is `Sync` (required by `DashMap`).
-pub struct RuntimeData {
-    pub receiver: Option<Mutex<mpsc::Receiver<Result<DownloadFile, download_lib::DownloadError>>>>,
-    pub download: Option<DownloadFile>,
-    pub sha256_rx: Option<Mutex<mpsc::Receiver<String>>>,
-}
-
-/// Global storage for runtime-only task data, keyed by task id.
-/// Uses `DashMap` for lock-free concurrent access — no global Mutex needed.
-static RUNTIME: std::sync::LazyLock<DashMap<u64, RuntimeData>> =
-    std::sync::LazyLock::new(DashMap::new);
-
-fn runtime_map() -> &'static DashMap<u64, RuntimeData> {
-    &RUNTIME
-}
-
 /// A download task tracked in the GUI. Clone + PartialEq for Dioxus signals.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DownloadTask {
@@ -86,42 +65,6 @@ pub struct DownloadTask {
 
 fn zero_duration() -> Duration {
     Duration::ZERO
-}
-
-// ── Runtime data helpers ──────────────────────────────────────
-
-impl DownloadTask {
-    #[allow(dead_code)]
-    pub fn with_runtime<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&mut RuntimeData) -> R,
-    {
-        let map = runtime_map();
-        let mut entry = map.entry(self.id).or_insert_with(|| RuntimeData {
-            receiver: None,
-            download: None,
-            sha256_rx: None,
-        });
-        f(&mut entry)
-    }
-
-    /// Static helper to access runtime data by task id.
-    pub fn with_runtime_id<F, R>(id: u64, f: F) -> R
-    where
-        F: FnOnce(&mut RuntimeData) -> R,
-    {
-        let map = runtime_map();
-        let mut entry = map.entry(id).or_insert_with(|| RuntimeData {
-            receiver: None,
-            download: None,
-            sha256_rx: None,
-        });
-        f(&mut entry)
-    }
-
-    pub fn remove_runtime(id: u64) {
-        runtime_map().remove(&id);
-    }
 }
 
 // ── Formatters ────────────────────────────────────────────────
@@ -171,7 +114,7 @@ impl DownloadTask {
     /// Serialize all tasks to JSON.
     pub fn save_all(tasks: &[DownloadTask]) -> Result<()> {
         let path = crate::paths::tasks_config_path();
-        log::info!("saved tasks to {}", path.display());
+        log::debug!("saved tasks to {}", path.display());
         let filter: Vec<&DownloadTask> = tasks.iter().collect();
         let toml = serde_json::to_string_pretty(&filter)?;
         std::fs::write(&path, toml)?;

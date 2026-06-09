@@ -1,205 +1,32 @@
-use dioxus::prelude::*;
-use std::sync::Mutex;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
 use crate::components::log_panel::LogPanel;
 use crate::components::sidebar::Sidebar;
 use crate::components::theme_toggle::ThemeToggle;
 use crate::components::toolbar::Toolbar;
-use crate::gui_logger::LogBuffer;
-use crate::state::app_state::AppState;
-use crate::state::download_task::{compute_sha256, DownloadTask, TaskStatus};
+use crate::state::app_state::{AppState, HandleDeleteType, HandlePauseType, HandleResumeType};
+use crate::state::download_task::{DownloadTask, TaskStatus};
 use crate::state::theme::ThemeClasses;
 use crate::Route;
+use dioxus::prelude::*;
 
 /// Shared layout wrapping all pages: Toolbar + Sidebar + Outlet + LogPanel.
 #[component]
 pub fn Shell() -> Element {
     let cls = use_context::<Signal<ThemeClasses>>();
     let cls = cls();
-    let mut state = use_context::<AppState>();
+    let state = use_context::<AppState>();
     let log_collapsed = use_signal(|| false);
 
     // Extract signals
-    let mut tasks_sig = state.tasks;
-    let mut sel_id = state.selected_id;
-    let mut logs = state.logs;
+    let tasks_sig = state.tasks;
+    let mut select_id_signal = state.selected_id;
+    let logs = state.logs;
     let filter = state.filter;
     let mut dirty = state.dirty;
-    let log_buf = use_context::<LogBuffer>();
-
-    // ── Periodic update tick ───────────────────────────────
-    let mut tick = use_signal(|| 0u64);
-    use_future(move || async move {
-        loop {
-            tokio::time::sleep(Duration::from_millis(200)).await;
-            tick += 1;
-        }
-    });
-    let _ = tick(); // force re-render on tick
-
-    // ── Drain library logs ────────────────────────────────
-    {
-        let entries = crate::gui_logger::drain_buffer(&log_buf);
-        if !entries.is_empty() {
-            let mut log_list = logs.write();
-            for e in entries {
-                log_list.push(e);
-            }
-            // Keep bounded
-            if log_list.len() > 5000 {
-                log_list.drain(0..1000);
-            }
-        }
-    }
-
-    // ── Poll browser extension channel ────────────────────
-    if let Some(req) = crate::try_recv_browser_req() {
-        log::trace!(
-            "Received download request from browser: url={}, cookies={:?}",
-            req.url,
-            req.cookies
-        );
-        state.browser_req.set(Some(req));
-        state.show_new_dialog.set(true);
-    }
 
     // ── Update tasks ───────────────────────────────────────
     let tasks = tasks_sig.read();
     let tasks_clone: Vec<DownloadTask> = tasks.iter().cloned().collect();
     drop(tasks);
-
-    // Collect tasks that need SHA256 computation (outside the runtime lock)
-    let mut sha256_queue: Vec<(u64, String)> = Vec::new();
-
-    // Poll receivers and update progress
-    for task in &tasks_clone {
-        // Check SHA256 rx (separate call)
-        let mut sha_hash: Option<String> = None;
-        DownloadTask::with_runtime_id(task.id, |rt| {
-            // Use as_ref().and_then() to drop MutexGuard before assigning rt.sha256_rx
-            let hash = rt
-                .sha256_rx
-                .as_ref()
-                .and_then(|rx| rx.lock().unwrap().try_recv().ok());
-            if let Some(h) = hash {
-                sha_hash = Some(h);
-                rt.sha256_rx = None;
-            }
-        });
-        if let Some(hash) = sha_hash {
-            let mut tlist = tasks_sig.write();
-            if let Some(t) = tlist.iter_mut().find(|t| t.id == task.id) {
-                t.sha256 = Some(hash.clone());
-                dirty.set(true);
-            }
-            log::info!("SHA256: {}", hash);
-        }
-
-        // Check download receiver + poll progress
-        DownloadTask::with_runtime_id(task.id, |rt| {
-            // Extract result first so MutexGuard is dropped before assigning rt.receiver
-            let recv_result = rt
-                .receiver
-                .as_ref()
-                .and_then(|rx| rx.lock().unwrap().try_recv().ok());
-
-            if let Some(result) = recv_result {
-                match result {
-                    Ok(df) => {
-                        let real = df.get_real_file_path();
-                        let fname = crate::state::download_task::extract_filename(&real);
-                        let size = df.size();
-                        let mut tlist = tasks_sig.write();
-                        if let Some(t) = tlist.iter_mut().find(|t| t.id == task.id) {
-                            t.filename = fname.clone();
-                            t.file_path = real;
-                            t.file_size = size;
-                            t.start_time_ms = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_millis() as u64;
-                            t.status = TaskStatus::Downloading;
-                        }
-                        dirty.set(true);
-                        log::info!("Downloading: {}", fname);
-                        rt.download = Some(df);
-                    }
-                    Err(e) => {
-                        let mut tlist = tasks_sig.write();
-                        if let Some(t) = tlist.iter_mut().find(|t| t.id == task.id) {
-                            t.status = TaskStatus::Error;
-                            t.error_msg = Some(e.to_string());
-                        }
-                        dirty.set(true);
-                        log::error!("Failed: {}", e);
-                    }
-                }
-                rt.receiver = None;
-            }
-
-            // Poll active download
-            if let Some(ref df) = rt.download {
-                let status = df.get_status();
-                let mut tlist = tasks_sig.write();
-                if let Some(t) = tlist.iter_mut().find(|t| t.id == task.id) {
-                    t.downloaded = status.get_down_size();
-                    if df.size() > 0 {
-                        t.file_size = df.size();
-                    }
-                    t.speed = status.get_byte_sec();
-                    t.progress = status.get_percent_complete();
-                    if matches!(t.status, TaskStatus::Starting | TaskStatus::Downloading) {
-                        let now_ms = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_millis() as u64;
-                        t.elapsed = Duration::from_millis(now_ms - t.start_time_ms);
-                    }
-
-                    if status.is_finish()
-                        && t.status != TaskStatus::Completed
-                        && t.status != TaskStatus::Error
-                    {
-                        if status.is_error() {
-                            t.status = TaskStatus::Error;
-                            t.error_msg = status.get_error().map(|e| e.to_string());
-                            dirty.set(true);
-                            log::error!("Error: {}", t.error_msg.as_deref().unwrap_or("unknown"));
-                        } else {
-                            t.status = TaskStatus::Completed;
-                            t.progress = 100.0;
-                            t.downloaded = t.file_size;
-                            t.speed = 0;
-                            dirty.set(true);
-                            t.file_path = df.get_real_file_path();
-                            log::info!("Completed: {}", t.file_path);
-
-                            // Queue SHA256 computation (must be done OUTSIDE the runtime lock)
-                            if t.sha256.is_none() {
-                                sha256_queue.push((t.id, t.file_path.clone()));
-                                log::info!("Computing SHA256...");
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // Process SHA256 queue (OUTSIDE the runtime lock to avoid deadlock)
-    for (tid, file_path) in sha256_queue {
-        let (tx, rx) = std::sync::mpsc::channel();
-        let fp = file_path.clone();
-        std::thread::spawn(move || {
-            if let Ok(hash) = compute_sha256(&fp) {
-                let _ = tx.send(hash);
-            }
-        });
-        DownloadTask::with_runtime_id(tid, |rt_data| {
-            rt_data.sha256_rx = Some(Mutex::new(rx));
-        });
-    }
 
     // ── Derived counts ─────────────────────────────────────
     let all_count = tasks_clone.len();
@@ -226,88 +53,15 @@ pub fn Shell() -> Element {
         .map(|t| t.speed)
         .sum();
 
+    let select_id = select_id_signal();
     let sel_status =
-        sel_id().and_then(|id| tasks_clone.iter().find(|t| t.id == id).map(|t| t.status));
+        select_id.and_then(|id| tasks_clone.iter().find(|t| t.id == id).map(|t| t.status));
+
     let can_pause = sel_status == Some(TaskStatus::Downloading);
     let can_resume = sel_status == Some(TaskStatus::Paused);
 
-    // ── Action handlers ────────────────────────────────────
-    let handle_pause = move |_| {
-        if let Some(id) = sel_id() {
-            let mut tlist = tasks_sig.write();
-            if let Some(t) = tlist.iter_mut().find(|t| t.id == id) {
-                t.status = TaskStatus::Paused;
-                t.speed = 0;
-            }
-            drop(tlist);
-            DownloadTask::with_runtime_id(id, |rt| {
-                if let Some(ref df) = rt.download {
-                    df.suspend();
-                }
-            });
-            log::info!("Paused task #{}", id);
-            dirty.set(true);
-        }
-    };
-
-    let handle_resume = move |_| {
-        if let Some(id) = sel_id() {
-            let task = tasks_sig.read().iter().find(|t| t.id == id).cloned();
-            if let Some(t) = task {
-                let mut tlist = tasks_sig.write();
-                if let Some(tm) = tlist.iter_mut().find(|t2| t2.id == id) {
-                    tm.status = TaskStatus::Downloading;
-                }
-                drop(tlist);
-
-                DownloadTask::with_runtime_id(id, |rt| {
-                    if let Some(ref df) = rt.download {
-                        df.restart();
-                    } else {
-                        let (tx, rx) = std::sync::mpsc::channel();
-                        rt.receiver = Some(Mutex::new(rx));
-                        let u = t.url.clone();
-                        let s = t.save_dir.clone();
-                        let tc = t.task_count;
-                        let ck = t.cookies.clone();
-                        crate::rt().spawn(async move {
-                            let result = download_lib::DownloadFile::start_download(
-                                u,
-                                std::path::PathBuf::from(s),
-                                tc,
-                                1024 * 1024,
-                                None,
-                                ck,
-                            )
-                            .await;
-                            let _ = tx.send(result);
-                        });
-                    }
-                });
-                log::info!("Resumed task #{}", id);
-                dirty.set(true);
-            }
-        }
-    };
-
-    let handle_delete = move |_| {
-        if let Some(id) = sel_id() {
-            DownloadTask::with_runtime_id(id, |rt| {
-                if let Some(ref df) = rt.download {
-                    df.suspend();
-                }
-            });
-            DownloadTask::remove_runtime(id);
-            tasks_sig.write().retain(|t| t.id != id);
-            sel_id.set(None);
-            log::info!("Deleted task #{}", id);
-            dirty.set(true);
-        }
-    };
-
     // ── Auto-save dirty tasks ───────────────────────────────
     if dirty() {
-        debug!("saved tasks");
         let task_list = tasks_sig.read();
         DownloadTask::save_all(&task_list)?;
         dirty.set(false);
@@ -319,12 +73,25 @@ pub fn Shell() -> Element {
             Toolbar {
                 active_count,
                 total_speed,
-                selected_id: sel_id(),
+                selected_id: select_id,
                 can_pause,
                 can_resume,
-                on_pause: handle_pause,
-                on_resume: handle_resume,
-                on_delete: handle_delete,
+                on_pause: move|_|{
+                    if let Some(selected_id) = select_id_signal() {
+                        consume_context::<HandlePauseType>().call(selected_id.into());
+                    }
+                },
+                on_resume: move|_|{
+                    if let Some(selected_id) = select_id_signal() {
+                        consume_context::<HandleResumeType>().call(selected_id.into());
+                    }
+                },
+                on_delete: move|_|{
+                    if let Some(selected_id) = select_id_signal() {
+                        consume_context::<HandleDeleteType>().call(selected_id.into());
+                        select_id_signal.set(None);
+                    }
+                },
                 theme_toggle: rsx! { ThemeToggle {} },
             }
 
